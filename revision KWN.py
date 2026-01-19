@@ -1,4 +1,6 @@
-# comparing adam and powell performance with respect to iterations and time.
+# the optimiser runs for 200 iteration with a significatly tight criteria on loss convergence. two versions of loss are established
+# one loss for the original version. the other for the p1=p4. run the first one to measure the similarity between p1 and p4.
+# then run it with the 2nd one for the similarity between p1 and p4.
 
 import time
 import numpy as np
@@ -65,7 +67,7 @@ c03 = 10 #+ #[s]
 #modelling parameter
 seed_value = 16
 tf.random.set_seed(seed_value)
-N_optimizer = 2000
+N_optimizer = 800
 dt = 1. #(h)
 LR_param1 = 0.1
 LR_param2 = 0.001
@@ -75,7 +77,7 @@ LR_param5 = 0.1
 LR_paramrpc = 0.0000001
 LR_SGD = 0.01
 LR_Adam = 0.001
-ftol_adam = 0.0000001 #adam: 0.001 in 15min, , 0.0001 for 18 min still no convergence, 0.00001 for good view #0.000001 40mins for best view 
+ftol_adam = 0.00000000000001 #adam: 0.001 in 15min, , 0.0001 for 18 min still no convergence, 0.00001 for good view #0.000001 40mins for best view 
 ftol_powell= 0.0001 # 0.1 for 40 mins
 
 
@@ -153,20 +155,20 @@ def sigmoid(x):
         return z / (1 + z)
 
 
-def DeltaGsnorm(dGvol_, Gamma_):
+def DeltaGsnorm(dGvol_, Gamma_, param2_):
+    param2_exp = tf.exp(param2_)
     shape_factor = (4.*Delta**3.)/(3.*Delta-1.)**2.
-    DeltaGsnorm__ =   (16.*pi*Gamma_**3.)/(3.*dGvol_**2.) * (1.e20)**sigmoid(dGvol_)  *  shape_factor  /  (K*T)
+    DeltaGsnorm__ =  param2_exp * (16.*pi*Gamma_**3.)/(3.*dGvol_**2.) * (1.e20)**sigmoid(dGvol_)  *  shape_factor  /  (K*T)
     return DeltaGsnorm__
 
-def dNdT(Z__, Beta__, DeltaGsnorm__, param2_):
-    param2_exp = tf.exp(param2_)
-    dNdT__ = N0 * Z__ * Beta__ * e**(- param2_exp * DeltaGsnorm__)/(1 + (param2_exp * DeltaGsnorm__))
+def dNdT(Z__, Beta__, DeltaGsnorm__):
+    dNdT__ = N0 * Z__ * Beta__ * e**(- DeltaGsnorm__)/(1 + DeltaGsnorm__)
     return dNdT__
 
-def dNdT_nograd(Z__, Beta__, DeltaGsnorm__, param2_):
+def dNdT_nograd(Z__, Beta__, DeltaGsnorm__):
     # dNdT__ =  N0 * Z__ * Beta__ * e**(- (param2_exp) * DeltaGsnorm__) #(s-1) 
     # dNdT__ = N0 * Z__ * Beta__ * e**(- param2 * DeltaGsnorm__)
-    dNdT__ = N0 * Z__ * Beta__ * e**(- param2 * DeltaGsnorm__)/(1 + (param2 * DeltaGsnorm__))
+    dNdT__ = N0 * Z__ * Beta__ * e**(- DeltaGsnorm__)/(1 +  DeltaGsnorm__)
     return dNdT__
 
 def Rp(Rs__, Gamma_, param3_):
@@ -293,6 +295,7 @@ def loss_function(var1, var2):
 
 opt = tf.keras.optimizers.Adam(learning_rate=LR_Adam)
 loss_t = []
+loss_basic_t = []
 def physics_adam():
 
     rpc = paramrpc* 1.4e-9 #3. (nm) [s] #2.4e-9 (m) [1] 5e-9 [4]
@@ -329,9 +332,9 @@ def physics_adam():
     Z_ = Z()
     Beta_ = Beta()
     Rs_ = Rs(dGvol_, Gamma, param1)
-    DeltaGsnorm_ = DeltaGsnorm(dGvol_, Gamma)
+    DeltaGsnorm_ = DeltaGsnorm(dGvol_, Gamma, param2)
     Rp_ = Rp(Rs_, Gamma, param3)
-    dNdT_ = dNdT(Z_, Beta_, DeltaGsnorm_, param2)
+    dNdT_ = dNdT(Z_, Beta_, DeltaGsnorm_)
     KWNcounter = 1
     ND, PR = CalculateNucleation(KWNcounter, dNdT_, dt, Rp_, ND, PR)
 
@@ -359,9 +362,11 @@ def physics_adam():
         Yield_t = Strength(KWNcounter, ND, PR, rpc, xm_Mg, xm_Si, Mppt, Yield_t, Tau_c_t, Sigma_ppt_t)
 
     lambda_l2 = 1e-4  # Adjust this factor to control the strength of regularization
-    lambda_l3 = 1e-4
+    lambda_l3 = 1.
+    lambda_l4 = 1.
+    lambda_l5 = 1.
 
-    l2_reg = (
+    loss_unity = (
         tf.nn.l2_loss(param1- 1.0) +
         tf.nn.l2_loss(param2) +
         tf.nn.l2_loss(param3- 1.0) +
@@ -369,14 +374,24 @@ def physics_adam():
         tf.nn.l2_loss(param5- 1.0)
     )
 
-    loss_ = loss_function(Yield_t, Yield_interpolated) + lambda_l2 * l2_reg + lambda_l3 * tf.nn.l2_loss(param1- param4)**2.
+    loss_p1p4 = tf.nn.l2_loss(param1- param4)
+    loss_p1p3 = tf.nn.l2_loss(param1 * param3**2 - 1.)
+    loss_p1p2 = tf.nn.l2_loss(e**param2 - param1)
+    loss_p1p5 = tf.nn.l2_loss(param1- param5)
+
+    basic_loss = loss_function(Yield_t, Yield_interpolated)
+
+    # loss_ = basic_loss
+    loss_ = basic_loss + lambda_l2 * loss_unity + lambda_l3 * loss_p1p4 + lambda_l4 * loss_p1p2 + lambda_l5 * loss_p1p5
     
     error_percentage = tf.reduce_mean(tf.abs((Yield_t - Yield_interpolated) / Yield_interpolated)) * 100
     
     loss_t.append(loss_.numpy())
+    loss_basic_t.append(basic_loss.numpy())
 
-    visual(time_, TND_t, MPR_t, TVF_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, ii, optimizer='adam')
+    visual(time_, TND_t, MPR_t, TVF_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, ii, optimizer='adam', loss_basic_t = loss_basic_t)
     print(f'adam iteration {ii} finished. loss {loss_} e% {error_percentage}')
+
     print('\n')
     return loss_
 

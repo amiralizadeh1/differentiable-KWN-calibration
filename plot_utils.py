@@ -55,7 +55,7 @@ def nse_score(Yield_t, Yield_interpolated):
 
     return nse_percent
 
-def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, iteration, optimizer):
+def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, iteration, optimizer, loss_basic_t=None):
 
     y = [1000*i for i in y]
     Yield_t = 1000 * Yield_t
@@ -155,6 +155,20 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         df_loss = pd.DataFrame(loss_data)
         os.makedirs(os.path.dirname(loss_excel_path), exist_ok=True)
         df_loss.to_excel(loss_excel_path, index=False)
+
+        if loss_basic_t is not None:
+            fig, ax = plt.subplots()
+            ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Basic loss', title=f'loss_basic at iteration {iteration}')
+            ax.plot(loss_basic_t, color = 'blue')
+            ax.legend(['Basic loss'])
+            path = os.path.join('./plots', f'Loss_basic{optimizer}@{iteration}.png')
+            plt.savefig(path)
+
+            basic_loss_excell_path = os.path.join('./plots', f'Basic_loss{optimizer}.xlsx')
+            Basic_loss = {'Iteration': list(range(len(loss_basic_t))), 'Basic loss': loss_basic_t}
+            df_diff = pd.DataFrame(Basic_loss)
+            os.makedirs(os.path.dirname(basic_loss_excell_path), exist_ok=True)
+            df_diff.to_excel(basic_loss_excell_path, index=False)
 
 
 
