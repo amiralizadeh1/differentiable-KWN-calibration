@@ -65,9 +65,9 @@ c02 = 500 #+ #[s] #(c02-Sigma) may give a negative value, which is invalid for t
 c03 = 10 #+ #[s]
 
 #modelling parameter
-seed_value = 16
-tf.random.set_seed(seed_value)
-N_optimizer = 800
+# seed_value = 16
+# tf.random.set_seed(seed_value)
+N_optimizer = 1000 
 dt = 1. #(h)
 LR_param1 = 0.1
 LR_param2 = 0.001
@@ -80,13 +80,12 @@ LR_Adam = 0.001
 ftol_adam = 0.00000000000001 #adam: 0.001 in 15min, , 0.0001 for 18 min still no convergence, 0.00001 for good view #0.000001 40mins for best view 
 ftol_powell= 0.0001 # 0.1 for 40 mins
 
-
-param1_init = tf.random.normal([], mean=1.0, stddev=0.1)
-initial_p2 = tf.math.log(tf.random.normal([], mean=1.0, stddev=0.01))
-param2_init = initial_p2
-param3_init = tf.random.normal([], mean=1.0, stddev=0.1)
-param4_init = tf.random.normal([], mean=1.0, stddev=0.1)
-param5_init = tf.random.normal([], mean=1.0, stddev=0.1)
+# param1_init = tf.random.normal([], mean=1.0, stddev=0.1)
+# initial_p2 = tf.math.log(tf.random.normal([], mean=1.0, stddev=0.01))
+# param2_init = initial_p2
+# param3_init = tf.random.normal([], mean=1.0, stddev=0.1)
+# param4_init = tf.random.normal([], mean=1.0, stddev=0.1)
+# param5_init = tf.random.normal([], mean=1.0, stddev=0.1)
 
 time_steps = int(FinalTime/dt)
 time_ = np.arange(0, time_steps * dt, dt)
@@ -376,7 +375,7 @@ def physics_adam():
 
     loss_p1p4 = tf.nn.l2_loss(param1- param4)
     loss_p1p3 = tf.nn.l2_loss(param1 * param3**2 - 1.)
-    loss_p1p2 = tf.nn.l2_loss(e**param2 - param1)
+    loss_p1p2 = tf.nn.l2_loss((e**param2)**3 - param1)
     loss_p1p5 = tf.nn.l2_loss(param1- param5)
 
     basic_loss = loss_function(Yield_t, Yield_interpolated)
@@ -389,122 +388,98 @@ def physics_adam():
     loss_t.append(loss_.numpy())
     loss_basic_t.append(basic_loss.numpy())
 
-    visual(time_, TND_t, MPR_t, TVF_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, ii, optimizer='adam', loss_basic_t = loss_basic_t)
+    visual(time_, TND_t, MPR_t, TVF_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, ii, optimizer='adam', loss_basic_t = loss_basic_t, mc_run = mc_run)
     print(f'adam iteration {ii} finished. loss {loss_} e% {error_percentage}')
 
     print('\n')
     return loss_
 
 
-param1 = tf.Variable(param1_init, trainable = True, dtype=np.float32) # 1.0
-param2 = tf.Variable(param2_init, trainable = True, dtype=np.float32) # 1.12 0.1133
-param3 = tf.Variable(param3_init, trainable = True, dtype=np.float32) # 1.05
-param4 = tf.Variable(param4_init, trainable = True, dtype=np.float32) # 1.1
-param5 = tf.Variable(param5_init, trainable = True, dtype=np.float32) # 1.07
-paramrpc = tf.Variable(0.85, trainable = False, dtype=np.float32) # 0.85
-
-param1_t = []
-param2_t = []
-param3_t = []
-param4_t = []
-param5_t = []
-paramrpc_t = []
-
-grad1_t = []
-grad2_t = []
-grad3_t = []
-grad4_t = []
-grad5_t = []
-
-param1_t.append(param1.numpy())
-param2_t.append(np.exp(initial_p2.numpy()))
-param3_t.append(param3.numpy())
-param4_t.append(param4.numpy())
-param5_t.append(param5.numpy())
-paramrpc_t.append(paramrpc.numpy())
-
-
-
-tic = time.time()
-
-for ii in range(N_optimizer):
-
-    if ii==0:
-        print("adam param1 @0:", param1)
-        print("adam param2 @0:", param2)
-        print("adam param3 @0:", param3)
-        print("adam param4 @0:", param4)
-        print("adam param5 @0:", param5)
-        print("adam paramrpc @0:", paramrpc)
-
-    with tf.GradientTape() as tape:
-        loss_value = physics_adam()
-    gradients = tape.gradient(loss_value, [param1, param2, param3, param4, param5]) #paramrpc
-
-    # Adam
-    gradients_and_vars = [
-    (gradients[0] * LR_param1, param1),
-    (gradients[1] * LR_param2, param2),
-    (gradients[2] * LR_param3, param3),
-    (gradients[3] * LR_param4, param4),
-    (gradients[4] * LR_param5, param5)
-    ]
-    opt.apply_gradients(gradients_and_vars)
-
-    # Commented out manual gradient descent with specific learning rates
-    # param1.assign_sub(LR_param1 * gradients[0])
-    # param2.assign_sub(LR_param2 * gradients[1])
-    # param3.assign_sub(LR_param3 * gradients[2])
-    # param4.assign_sub(LR_param4 * gradients[3])
-    # param5.assign_sub(LR_param5 * gradients[4])
-    # paramrpc.assign_sub(LR_paramrpc * gradients[5])
-
+# Monte Carlo loop
+for mc_run in range(1, 11):  # Seeds 1 to 10
+    print(f"\n=== Monte Carlo Run {mc_run} with seed {mc_run} ===")
+    tf.random.set_seed(mc_run)
+    
+    # Reset parameters for each run
+    param1_init = tf.random.normal([], mean=1.0, stddev=0.1)
+    initial_p2 = tf.math.log(tf.random.normal([], mean=1.0, stddev=0.01))
+    param2_init = initial_p2
+    param3_init = tf.random.normal([], mean=1.0, stddev=0.1)
+    param4_init = tf.random.normal([], mean=1.0, stddev=0.1)
+    param5_init = tf.random.normal([], mean=1.0, stddev=0.1)
+    
+    param1 = tf.Variable(param1_init, trainable = True, dtype=np.float32)
+    param2 = tf.Variable(param2_init, trainable = True, dtype=np.float32)
+    param3 = tf.Variable(param3_init, trainable = True, dtype=np.float32)
+    param4 = tf.Variable(param4_init, trainable = True, dtype=np.float32)
+    param5 = tf.Variable(param5_init, trainable = True, dtype=np.float32)
+    paramrpc = tf.Variable(0.85, trainable = False, dtype=np.float32)
+    
+    # Reset optimizer and tracking lists
+    opt = tf.keras.optimizers.Adam(learning_rate=LR_Adam)
+    loss_t = []
+    loss_basic_t = []
+    param1_t = []
+    param2_t = []
+    param3_t = []
+    param4_t = []
+    param5_t = []
+    paramrpc_t = []
+    
     param1_t.append(param1.numpy())
-    param2_t.append(np.exp(param2.numpy()))
+    param2_t.append(np.exp(initial_p2.numpy()))
     param3_t.append(param3.numpy())
     param4_t.append(param4.numpy())
     param5_t.append(param5.numpy())
     paramrpc_t.append(paramrpc.numpy())
-
-    grad1_t.append(gradients[0].numpy())
-    grad2_t.append(gradients[1].numpy())
-    grad3_t.append(gradients[2].numpy())
-    grad4_t.append(gradients[3].numpy())
-    grad5_t.append(gradients[4].numpy())
-
-    print("param1:", param1_t[-1])
-    print("param2:", param2_t[-1])
-    print("param3:", param3_t[-1])
-    print("param4:", param4_t[-1])
-    print("param5:", param5_t[-1])
     
-    # Check ftol convergence criteria
-    if ii > 0:
-        current_loss = loss_t[-1]
-        previous_loss = loss_t[-2]
-        loss_diff = abs(current_loss - previous_loss)
-        tolerance = ftol_adam * max(abs(current_loss), abs(previous_loss), 1.0)
-        print(f"At iteration {ii}: loss_diff={loss_diff:.6f} , tolerance={tolerance:.6f}")
-        if loss_diff <= tolerance:
-            print(f"ADAM Convergence reached.")
-            break
-
-toc = time.time()
-adam_time = (toc-tic)/60.
-adam_iterations = ii + 1
-print(f'execution time of ADAM is {adam_time} mins')
-print()
-
-# Save Adam final convergence results before Powell starts
-adam_final_params = {
-    'param1': param1.numpy(),
-    'param2': param2.numpy(), 
-    'param3': param3.numpy(),
-    'param4': param4.numpy(),
-    'param5': param5.numpy()
-}
-
-# ===========================================    Powell  ========================================
+    tic = time.time()
+    
+    for ii in range(N_optimizer):
+    
+        with tf.GradientTape() as tape:
+            loss_value = physics_adam()
+        gradients = tape.gradient(loss_value, [param1, param2, param3, param4, param5])
+    
+        gradients_and_vars = [
+        (gradients[0] * LR_param1, param1),
+        (gradients[1] * LR_param2, param2),
+        (gradients[2] * LR_param3, param3),
+        (gradients[3] * LR_param4, param4),
+        (gradients[4] * LR_param5, param5)
+        ]
+        opt.apply_gradients(gradients_and_vars)
+    
+        param1_t.append(param1.numpy())
+        param2_t.append(np.exp(param2.numpy()))
+        param3_t.append(param3.numpy())
+        param4_t.append(param4.numpy())
+        param5_t.append(param5.numpy())
+        paramrpc_t.append(paramrpc.numpy())
+        
+        # if ii > 0:
+        #     current_loss = loss_t[-1]
+        #     previous_loss = loss_t[-2]
+        #     loss_diff = abs(current_loss - previous_loss)
+        #     tolerance = ftol_adam * max(abs(current_loss), abs(previous_loss), 1.0)
+        #     print(f"At iteration {ii}: loss_diff={loss_diff:.6f} , tolerance={tolerance:.6f}")
+        #     if loss_diff <= tolerance:
+        #         print(f"ADAM Convergence reached.")
+        #         break
+    
+    toc = time.time()
+    adam_time = (toc-tic)/60.
+    adam_iterations = ii + 1
+    
+    # Save results for this MC run
+    adam_final_params = {
+        'param1': param1_t[-1],
+        'param2': param2_t[-1],
+        'param3': param3_t[-1], 
+        'param4': param4_t[-1],
+        'param5': param5_t[-1]
+    }
+    print(f"MC run {mc_run} , execution time {adam_time:.2f}: {param1_t[-1]}, {param2_t[-1]}, {param3_t[-1]}, {param4_t[-1]}, {param5_t[-1]}")
 
 # #modelling parameter
 # N_optimizer_gd = 10

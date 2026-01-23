@@ -55,7 +55,7 @@ def nse_score(Yield_t, Yield_interpolated):
 
     return nse_percent
 
-def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, iteration, optimizer, loss_basic_t=None):
+def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, iteration, optimizer, loss_basic_t=None, mc_run = None):
 
     y = [1000*i for i in y]
     Yield_t = 1000 * Yield_t
@@ -104,10 +104,10 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         ax.scatter(x, y, color = 'red', s=30, marker = 'x')
         ax.legend(['Predicted', 'Interpolated experimental', 'Experimental'])  
         # ax.legend(['predictions', 'experimental data'], loc='lower right')
-        path = os.path.join('./plots', f'YS @{iteration}_{optimizer}.png')
+        path = os.path.join('./plots', f'YS @{iteration}_{optimizer}_mc{mc_run}.png')
         plt.savefig(path)
     
-        ys_excel_path = os.path.join('./plots', f'YS_results_{optimizer}.xlsx')
+        ys_excel_path = os.path.join('./plots', f'YS_results_{optimizer}_mc{mc_run}.xlsx')
         if os.path.exists(ys_excel_path):
             df = pd.read_excel(ys_excel_path)
         else:
@@ -146,11 +146,11 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss', title=f'MSE at iteration {iteration}')
         ax.plot(loss_t, color = 'blue')
         ax.legend(['loss'])
-        path = os.path.join('./plots', f'loss_{optimizer}@{iteration}.png')
+        path = os.path.join('./plots', f'loss_{optimizer}@{iteration}_mc{mc_run}.png')
         plt.savefig(path)
         # plt.show()
 
-        loss_excel_path = os.path.join('./plots', f'loss_{optimizer}.xlsx')
+        loss_excel_path = os.path.join('./plots', f'loss_{optimizer}_mc{mc_run}.xlsx')
         loss_data = {'Iteration': list(range(len(loss_t))), 'loss': loss_t,}
         df_loss = pd.DataFrame(loss_data)
         os.makedirs(os.path.dirname(loss_excel_path), exist_ok=True)
@@ -161,10 +161,10 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
             ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Basic loss', title=f'loss_basic at iteration {iteration}')
             ax.plot(loss_basic_t, color = 'blue')
             ax.legend(['Basic loss'])
-            path = os.path.join('./plots', f'Loss_basic{optimizer}@{iteration}.png')
+            path = os.path.join('./plots', f'Loss_basic{optimizer}@{iteration}_mc{mc_run}.png')
             plt.savefig(path)
 
-            basic_loss_excell_path = os.path.join('./plots', f'Basic_loss{optimizer}.xlsx')
+            basic_loss_excell_path = os.path.join('./plots', f'Basic_loss{optimizer}_mc{mc_run}.xlsx')
             Basic_loss = {'Iteration': list(range(len(loss_basic_t))), 'Basic loss': loss_basic_t}
             df_diff = pd.DataFrame(Basic_loss)
             os.makedirs(os.path.dirname(basic_loss_excell_path), exist_ok=True)
@@ -184,13 +184,13 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         ax.plot(param3_t)
         ax.plot(param4_t)
         ax.plot(param5_t)
-        ax.legend(['$P_1$', '$P_2$', '$P_3$', '$P_4$', '$P_5$']) #'$y_i$'
-        path = os.path.join('./plots', f'parameter_{optimizer}@{iteration}.png')
+        ax.legend(['$P_1$', '$P_2$', '$P_3$', '$P_4$', '$P_5$']) 
+        path = os.path.join('./plots', f'parameter_{optimizer}@{iteration}_mc{mc_run}.png')
         plt.tight_layout()
         plt.savefig(path)
-        plt.show()
+        # plt.show()
 
-        param_excel_path = os.path.join('./plots', 'parameters.xlsx')
+        param_excel_path = os.path.join('./plots', f'parameters_mc{mc_run}.xlsx')
         param_data = {
             'Iteration': list(range(len(param1_t))),
             'P1': param1_t,
