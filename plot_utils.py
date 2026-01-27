@@ -104,10 +104,10 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         ax.scatter(x, y, color = 'red', s=30, marker = 'x')
         ax.legend(['Predicted', 'Interpolated experimental', 'Experimental'])  
         # ax.legend(['predictions', 'experimental data'], loc='lower right')
-        path = os.path.join('./plots', f'YS @{iteration}_{optimizer}_mc{mc_run}.png')
+        path = os.path.join('./plots', f'mc{mc_run}_YS @{iteration}_{optimizer}.png')
         plt.savefig(path)
     
-        ys_excel_path = os.path.join('./plots', f'YS_results_{optimizer}_mc{mc_run}.xlsx')
+        ys_excel_path = os.path.join('./plots', f'mc{mc_run}_YS_{optimizer}.xlsx')
         if os.path.exists(ys_excel_path):
             df = pd.read_excel(ys_excel_path)
         else:
@@ -146,11 +146,11 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss', title=f'MSE at iteration {iteration}')
         ax.plot(loss_t, color = 'blue')
         ax.legend(['loss'])
-        path = os.path.join('./plots', f'loss_{optimizer}@{iteration}_mc{mc_run}.png')
+        path = os.path.join('./plots', f'mc{mc_run}_loss_{optimizer}@{iteration}.png')
         plt.savefig(path)
         # plt.show()
 
-        loss_excel_path = os.path.join('./plots', f'loss_{optimizer}_mc{mc_run}.xlsx')
+        loss_excel_path = os.path.join('./plots', f'mc{mc_run}_loss_{optimizer}.xlsx')
         loss_data = {'Iteration': list(range(len(loss_t))), 'loss': loss_t,}
         df_loss = pd.DataFrame(loss_data)
         os.makedirs(os.path.dirname(loss_excel_path), exist_ok=True)
@@ -161,17 +161,14 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
             ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Basic loss', title=f'loss_basic at iteration {iteration}')
             ax.plot(loss_basic_t, color = 'blue')
             ax.legend(['Basic loss'])
-            path = os.path.join('./plots', f'Loss_basic{optimizer}@{iteration}_mc{mc_run}.png')
+            path = os.path.join('./plots', f'mc{mc_run}_Loss_basic{optimizer}@{iteration}.png')
             plt.savefig(path)
 
-            basic_loss_excell_path = os.path.join('./plots', f'Basic_loss{optimizer}_mc{mc_run}.xlsx')
+            basic_loss_excell_path = os.path.join('./plots', f'mc{mc_run}_Basic_loss{optimizer}.xlsx')
             Basic_loss = {'Iteration': list(range(len(loss_basic_t))), 'Basic loss': loss_basic_t}
             df_diff = pd.DataFrame(Basic_loss)
             os.makedirs(os.path.dirname(basic_loss_excell_path), exist_ok=True)
             df_diff.to_excel(basic_loss_excell_path, index=False)
-
-
-
 
     if(iteration % 20 == 0):
         fig, ax = plt.subplots()
@@ -185,12 +182,12 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         ax.plot(param4_t)
         ax.plot(param5_t)
         ax.legend(['$P_1$', '$P_2$', '$P_3$', '$P_4$', '$P_5$']) 
-        path = os.path.join('./plots', f'parameter_{optimizer}@{iteration}_mc{mc_run}.png')
+        path = os.path.join('./plots', f'mc{mc_run}_param_{optimizer}@{iteration}.png')
         plt.tight_layout()
         plt.savefig(path)
         # plt.show()
 
-        param_excel_path = os.path.join('./plots', f'parameters_mc{mc_run}.xlsx')
+        param_excel_path = os.path.join('./plots', f'mc{mc_run}_parameters.xlsx')
         param_data = {
             'Iteration': list(range(len(param1_t))),
             'P1': param1_t,
@@ -203,10 +200,7 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         os.makedirs(os.path.dirname(param_excel_path), exist_ok=True)
         df_params.to_excel(param_excel_path, index=False)
 
-
-
-
-    # if(iteration <= N_optimizer-1):
+            # if(iteration <= N_optimizer-1):
     #     fig, ax = plt.subplots()
     #     ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='gradients', title='Gradients vs. iterations')
     #     ax.set_title('Gradients vs. iterations')
@@ -235,6 +229,50 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
     #     plt.show()
 
     plt.close('all')
+
+def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, Yield_interpolated, x, y):
+    # Convert yield values to MPa
+    y = [1000*i for i in y]
+    Yield_t = 1000 * Yield_t
+    Yield_interpolated = 1000*Yield_interpolated
+
+    # Plot Total Number Density
+    fig, ax = plt.subplots()
+    ax.set(xscale='linear', xlabel='Time (h)', ylabel='Total number density', title='Total number density vs. time')
+    ax.scatter(time[1:], TotalNumberDensity_t, color='blue', s=5)
+    ax.legend(['Total number density'])
+    plt.savefig('./plots/TND_physics.png')
+    plt.close()
+
+    # Plot Mean Particle Radius
+    fig, ax = plt.subplots()
+    ax.set(xscale='linear', xlabel='Time (h)', ylabel='Mean particle radius (m)', title='Mean particle radius vs. time')
+    ax.scatter(time[1:], MeanParticleRadius_t, color='blue', s=5)
+    ax.legend(['Mean particle radius'])
+    plt.savefig('./plots/MPR_physics.png')
+    plt.close()
+
+    # Plot Total Volume Fraction
+    fig, ax = plt.subplots()
+    ax.set(xscale='linear', xlabel='Time (h)', ylabel='Total volume fraction', title='Total volume fraction vs. time')
+    ax.scatter(time[1:], TotalVolFraction_t, color='blue', s=5)
+    ax.legend(['Total volume fraction'], loc='lower right')
+    ax.set_ylim([0, 0.008])
+    plt.savefig('./plots/TVF_physics.png')
+    plt.close()
+
+    # Plot Yield Strength
+    fig, ax = plt.subplots()
+    ax.set(xscale='linear', xlabel='Time (h)', ylabel='Yield strength (MPa)', title='Yield strength vs. time')
+    ax.scatter(time[1:], Yield_t, color='blue', s=5)
+    ax.scatter(time[1:], Yield_interpolated, color='grey', s=5)
+    ax.scatter(x, y, color='red', s=30, marker='x')
+    ax.legend(['Predicted', 'Interpolated experimental', 'Experimental'])
+    plt.savefig('./plots/YS_physics.png')
+    plt.close()
+
+
+
 
 # def visual_comparison():
 #     fig, ax = plt.subplots()

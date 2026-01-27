@@ -162,6 +162,7 @@ def DeltaGsnorm(dGvol_, Gamma_, param2_):
 
 def dNdT(Z__, Beta__, DeltaGsnorm__):
     dNdT__ = N0 * Z__ * Beta__ * e**(- DeltaGsnorm__)/(1 + DeltaGsnorm__)
+    # print(f'dNdT__:{dNdT__})
     return dNdT__
 
 def dNdT_nograd(Z__, Beta__, DeltaGsnorm__):
@@ -337,15 +338,16 @@ def physics_adam():
     KWNcounter = 1
     ND, PR = CalculateNucleation(KWNcounter, dNdT_, dt, Rp_, ND, PR)
 
-    # print(f'Delivered by CalculateNucleation:')
-    # print(f'dGvol_: {dGvol_}')
-    # print(f'Rs_: {Rs_}')
-    # print(f'DeltaGsnorm_: {DeltaGsnorm_}')
-    # print(f'Rp_: {Rp_}')
-    # print(f'dNdT_: {dNdT_}')
-    # print(f'ND: {ND}')
-    # print(f'PR: {PR}')
-    # print()
+    print(f'Delivered by CalculateNucleation:')
+    print(f'param2_exp: {tf.exp(param2)}')
+    print(f'dGvol_: {dGvol_}')
+    print(f'Rs_: {Rs_}')
+    print(f'DeltaGsnorm_: {DeltaGsnorm_}')
+    print(f'Rp_: {Rp_}')
+    print(f'dNdT_: {dNdT_}')
+    print(f'ND: {ND}')
+    print(f'PR: {PR}')
+    print()
 
 
     for KWNcounter in range(1, time_steps):
@@ -359,6 +361,17 @@ def physics_adam():
         # xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t,  MPR_t, Yield_t, Tau_c_t, Sigma_ppt_t, TND, MPR, TVF = CalculateVF(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, Yield_t, TVF_t, TND_t, MPR_t, Mppt, Tau_c_t, Sigma_ppt_t, rpc)
         xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t, MPR_t = Update(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, TVF_t, TND_t, MPR_t)
         Yield_t = Strength(KWNcounter, ND, PR, rpc, xm_Mg, xm_Si, Mppt, Yield_t, Tau_c_t, Sigma_ppt_t)
+
+        # print(f'KWNcounter: {KWNcounter} Time: {t} hours')
+        # print('ND', ND.numpy())
+        # print('PR', PR.numpy())
+        # print(f'xm_Mg: {xm_Mg.numpy()}, xm_Si: {xm_Si.numpy()}')
+        # print(f'VF: {VF.numpy()}')
+        # print(f'TND_t: {TND_t}')
+        # print(f'MPR_t: {MPR_t}')
+        # print(f'TVF_t: {TVF_t}')
+        # print(f'Yield_t: {Yield_t}')
+        # print()
 
     lambda_l2 = 1e-4  # Adjust this factor to control the strength of regularization
     lambda_l3 = 1.
@@ -396,7 +409,7 @@ def physics_adam():
 
 
 # Monte Carlo loop
-for mc_run in range(1, 11):  # Seeds 1 to 10
+for mc_run in range(1, 2):  # Seeds 1 to 10
     print(f"\n=== Monte Carlo Run {mc_run} with seed {mc_run} ===")
     tf.random.set_seed(mc_run)
     
@@ -414,6 +427,13 @@ for mc_run in range(1, 11):  # Seeds 1 to 10
     param4 = tf.Variable(param4_init, trainable = True, dtype=np.float32)
     param5 = tf.Variable(param5_init, trainable = True, dtype=np.float32)
     paramrpc = tf.Variable(0.85, trainable = False, dtype=np.float32)
+
+    # param1 = tf.Variable(param1_init, trainable = True, dtype=np.float32)
+    # param2 = tf.Variable(param2_init, trainable = True, dtype=np.float32)
+    # param3 = tf.Variable(param3_init, trainable = True, dtype=np.float32)
+    # param4 = tf.Variable(param4_init, trainable = True, dtype=np.float32)
+    # param5 = tf.Variable(param5_init, trainable = True, dtype=np.float32)
+    # paramrpc = tf.Variable(0.85, trainable = False, dtype=np.float32)
     
     # Reset optimizer and tracking lists
     opt = tf.keras.optimizers.Adam(learning_rate=LR_Adam)
@@ -538,15 +558,6 @@ for mc_run in range(1, 11):  # Seeds 1 to 10
 #     # print("param4:", param4_t[-1])
 #     # print("param5:", param5_t[-1])
 
-#     # print(f'Delivered by CalculateNucleation:')
-#     # print(f'dGvol_: {dGvol_}')
-#     # print(f'Rs_: {Rs_}')
-#     # print(f'DeltaGsnorm_: {DeltaGsnorm_}')
-#     # print(f'Rp_: {Rp_}')
-#     # print(f'dNdT_: {dNdT_}')
-#     # print(f'ND: {ND}')
-#     # print(f'PR: {PR}')
-#     # print()
 
 #     for KWNcounter in range(1, time_steps):
         

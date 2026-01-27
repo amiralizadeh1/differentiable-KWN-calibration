@@ -46,13 +46,17 @@ for file in file_paths:
         df = pd.read_excel(file)
         last_row = df.iloc[-1]  # extract last row
         parameter_rows.append(last_row)
-        print(f"MC run {file_paths.index(file)+1}: {last_row.to_dict()}")
+        # print(f"MC run {file_paths.index(file)+1}: {last_row.to_dict()}")
 
 param_df = pd.DataFrame(parameter_rows)
 param_df = param_df.drop(columns=["Iteration"])
 
 param_df.columns = ['$P_1$', '$P_2$', '$P_3$', '$P_4$', '$P_5$' ]
 print(param_df)
+# Calculate mean for each parameter
+means = param_df[['$P_1$', '$P_2$', '$P_3$', '$P_4$', '$P_5$']].mean(axis=0)
+print("Mean of each parameter:")
+print(means)
 
 # Calculate variance for each parameter 
 variances = param_df.var(axis=0)
