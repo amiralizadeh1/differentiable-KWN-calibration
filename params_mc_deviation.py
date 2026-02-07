@@ -16,7 +16,7 @@ plt.rcParams.update({
     'figure.titlesize': 15 # Font size for figure title
 })
 
-file_paths = [f"./plots/parameters_mc{i}.xlsx" for i in range(1, 11)]
+file_paths = [f"./plots/mc{i}_parameters.xlsx" for i in range(1, 11)]
 
 def format_with_uncertainty(mean_vals, std_vals):
     results = []
@@ -79,17 +79,16 @@ plt.savefig('./plots/parameter_parallel_coordinates.png', bbox_inches='tight')
 
 
 ys_file_paths = [
-    "./plots/YS_results_adam_mc1.xlsx",
-    "./plots/YS_results_adam_mc2.xlsx",
-    "./plots/YS_results_adam_mc3.xlsx", 
-    "./plots/YS_results_adam_mc4.xlsx",
-    "./plots/YS_results_adam_mc5.xlsx",
-    "./plots/YS_results_adam_mc6.xlsx",
-    "./plots/YS_results_adam_mc7.xlsx",
-    "./plots/YS_results_adam_mc8.xlsx",
-    "./plots/YS_results_adam_mc9.xlsx",
-    "./plots/YS_results_adam_mc10.xlsx",]
-
+    "./plots/mc1_YS_adam.xlsx",
+    "./plots/mc2_YS_adam.xlsx",
+    "./plots/mc3_YS_adam.xlsx",
+    "./plots/mc4_YS_adam.xlsx", 
+    "./plots/mc5_YS_adam.xlsx",
+    "./plots/mc6_YS_adam.xlsx",
+    "./plots/mc7_YS_adam.xlsx",
+    "./plots/mc8_YS_adam.xlsx",
+    "./plots/mc9_YS_adam.xlsx",
+    "./plots/mc10_YS_adam.xlsx",]
 # Read last column (Y_i990) from each file
 ys_values = []
 for file in ys_file_paths:

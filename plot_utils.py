@@ -57,10 +57,10 @@ def nse_score(Yield_t, Yield_interpolated):
 
 def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, iteration, optimizer, loss_basic_t=None, mc_run = None):
 
-    y = [1000*i for i in y]
-    Yield_t = 1000 * Yield_t
+    # y = [1000*i for i in y]
+    # Yield_t = 1000 * Yield_t
 
-    Yield_interpolated = 1000*Yield_interpolated
+    # Yield_interpolated = 1000*Yield_interpolated
 
 
     # fig, ax = plt.subplots()
