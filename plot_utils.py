@@ -107,22 +107,22 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         path = os.path.join('./plots', f'mc{mc_run}_YS @{iteration}_{optimizer}.png')
         plt.savefig(path)
     
-        ys_excel_path = os.path.join('./plots', f'mc{mc_run}_YS_{optimizer}.xlsx')
-        if os.path.exists(ys_excel_path):
-            df = pd.read_excel(ys_excel_path)
-        else:
-            # Ensure all arrays have same length by using time[1:] as reference
-            n = len(time[1:])
-            # Pad or truncate arrays to match length
-            y_padded = y + [None]*(n - len(y)) if len(y) < n else y[:n]
-            df = pd.DataFrame({
-                'Time (h)': time[1:],
-                'Interpolated YS (MPa)': 1000*Yield_interpolated[:n],
-                'Experimental YS (MPa)': y_padded
-            })
-        df[f'YS_iteration_{iteration} (MPa)'] = Yield_t[:len(time[1:])]
-        os.makedirs(os.path.dirname(ys_excel_path), exist_ok=True)
-        df.to_excel(ys_excel_path, index=False)
+        # ys_excel_path = os.path.join('./plots', f'mc{mc_run}_YS_{optimizer}.xlsx')
+        # if os.path.exists(ys_excel_path):
+        #     df = pd.read_excel(ys_excel_path)
+        # else:
+        #     # Ensure all arrays have same length by using time[1:] as reference
+        #     n = len(time[1:])
+        #     # Pad or truncate arrays to match length
+        #     y_padded = y + [None]*(n - len(y)) if len(y) < n else y[:n]
+        #     df = pd.DataFrame({
+        #         'Time (h)': time[1:],
+        #         'Interpolated YS (MPa)': 1000*Yield_interpolated[:n],
+        #         'Experimental YS (MPa)': y_padded
+        #     })
+        # df[f'YS_iteration_{iteration} (MPa)'] = Yield_t[:len(time[1:])]
+        # os.makedirs(os.path.dirname(ys_excel_path), exist_ok=True)
+        # df.to_excel(ys_excel_path, index=False)
 
     # fig, ax = plt.subplots()
     # ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss', title=f'MSE at iteration {iteration}')
@@ -141,7 +141,7 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
 
 
 
-    if(iteration % 20 == 0):
+    if(iteration % 10 == 0):
         fig, ax = plt.subplots()
         ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss', title=f'MSE at iteration {iteration}')
         ax.plot(loss_t, color = 'blue')
@@ -170,7 +170,7 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
             os.makedirs(os.path.dirname(basic_loss_excell_path), exist_ok=True)
             df_diff.to_excel(basic_loss_excell_path, index=False)
 
-    if(iteration % 20 == 0):
+    if(iteration % 10 == 0):
         fig, ax = plt.subplots()
         ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Parameter', title='Parameter vs. iterations')
         ax.set_title('Parameters vs. iterations')
@@ -230,26 +230,33 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
 
     plt.close('all')
 
-def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, Yield_interpolated, x, y):
+def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, Yield_interpolated, x, y, iteration=0, mc_run=0):
     # Convert yield values to MPa
     y = [1000*i for i in y]
     Yield_t = 1000 * Yield_t
     Yield_interpolated = 1000*Yield_interpolated
 
     # Plot Total Number Density
+    tnd_x = np.array([0.5, 1., 4., 8., 16., 76.])
+    tnd_y = np.array([3.247514e+22, 3.247514e+22, 2.565907e+22, 2.154435e+22, 2.324538e+22, 1.181972e+21])
     fig, ax = plt.subplots()
-    ax.set(xscale='linear', xlabel='Time (h)', ylabel='Total number density', title='Total number density vs. time')
+    ax.set(xscale='log', yscale='log', xlabel='Time (h)', ylabel='Total number density', title='Total number density vs. time')
     ax.scatter(time[1:], TotalNumberDensity_t, color='blue', s=5)
-    ax.legend(['Total number density'])
-    plt.savefig('./plots/TND_physics.png')
+    ax.scatter(tnd_x, tnd_y, color='red', s=30, marker='x')
+    ax.legend(['Total number density', 'Experimental data'])
+    plt.savefig(f'./plots/mc{mc_run}_TND_physics@{iteration}.png')
     plt.close()
 
     # Plot Mean Particle Radius
+    
+    mpr_x = np.array([0.5, 1., 4., 8., 16., 76.])
+    mpr_y = np.array([32.538446, 39.358762, 46.533809, 49.833394, 48.708346, 131.025383])*1e-10
     fig, ax = plt.subplots()
-    ax.set(xscale='linear', xlabel='Time (h)', ylabel='Mean particle radius (m)', title='Mean particle radius vs. time')
+    ax.set(xscale='log', yscale='log', xlabel='Time (h)', ylabel='Mean particle radius (m)', title='Mean particle radius vs. time')
     ax.scatter(time[1:], MeanParticleRadius_t, color='blue', s=5)
-    ax.legend(['Mean particle radius'])
-    plt.savefig('./plots/MPR_physics.png')
+    ax.scatter(mpr_x, mpr_y, color='red', s=30, marker='x')
+    ax.legend(['Total number density', 'Experimental data'])
+    plt.savefig(f'./plots/mc{mc_run}_MPR_physics@{iteration}.png')
     plt.close()
 
     # Plot Total Volume Fraction
@@ -257,8 +264,8 @@ def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, Total
     ax.set(xscale='linear', xlabel='Time (h)', ylabel='Total volume fraction', title='Total volume fraction vs. time')
     ax.scatter(time[1:], TotalVolFraction_t, color='blue', s=5)
     ax.legend(['Total volume fraction'], loc='lower right')
-    ax.set_ylim([0, 0.008])
-    plt.savefig('./plots/TVF_physics.png')
+    # ax.set_ylim([0, 0.01])
+    plt.savefig(f'./plots/mc{mc_run}_TVF_physics@{iteration}.png')
     plt.close()
 
     # Plot Yield Strength
@@ -268,7 +275,7 @@ def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, Total
     ax.scatter(time[1:], Yield_interpolated, color='grey', s=5)
     ax.scatter(x, y, color='red', s=30, marker='x')
     ax.legend(['Predicted', 'Interpolated experimental', 'Experimental'])
-    plt.savefig('./plots/YS_physics.png')
+    plt.savefig(f'./plots/mc{mc_run}_YS_physics@{iteration}.png')
     plt.close()
 
 
