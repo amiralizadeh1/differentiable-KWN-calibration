@@ -63,19 +63,20 @@ c03 = 10 #+ #[s]
 
 #modelling parameters
 N_optimizer = 1000
-dt = 0.1 #(h)
-LR_param1 = 0.1
-LR_param2 = 0.001
-LR_param3 = 0.1
-LR_param4 = 0.01
-LR_param5 = 1.0
+dt = 0.5 #(h)
+LR_param1 = 1
+LR_param2 = 0.01
+LR_param3 = 1
+LR_param4 = 1
+LR_param5 = 1
 LR_paramrpc = 0.0000001
 LR_SGD = 0.01
 LR_Adam = 0.001
 ftol_adam = 0.00000000000001 #adam: 0.001 in 15min, , 0.0001 for 18 min still no convergence, 0.00001 for good view #0.000001 40mins for best view 
 
 time_steps = int(FinalTime/dt)
-time_ = np.arange(0, time_steps * dt, dt)
+time_ = np.logspace(np.log10(dt), np.log10(FinalTime), time_steps)
+dt_array = np.diff(np.concatenate([[0], time_]))  # Variable dt for each step
 
 Fk_coeff_1 = 2.*DELTA_DIS*Gmod*b_dis**2. #Delata_dis is a parameter depending on te shape and nature of dislocations
 Fk_coeff_2 = math.sqrt(2)*DELTA_DIS*Gmod*b_dis
@@ -165,7 +166,6 @@ def sigmoid(x):
         z = np.exp(x)
         return z / (1 + z)
 
-
 def DeltaGsnorm(dGvol_, Gamma_, param2_):
     param2_exp = tf.exp(param2_)
     shape_factor = (4.*Delta**3.)/(3.*Delta-1.)**2.
@@ -173,23 +173,18 @@ def DeltaGsnorm(dGvol_, Gamma_, param2_):
     return DeltaGsnorm__
 
 def dNdT(Z__, Beta__, DeltaGsnorm__):
-    dNdT__ = N0 * Z__ * Beta__ * e**(- DeltaGsnorm__)/(1 + DeltaGsnorm__)
-    # print(f'dNdT__:{dNdT__})
-    return dNdT__
-
-def dNdT_nograd(Z__, Beta__, DeltaGsnorm__):
-    # dNdT__ =  N0 * Z__ * Beta__ * e**(- (param2_exp) * DeltaGsnorm__) #(s-1) 
-    # dNdT__ = N0 * Z__ * Beta__ * e**(- param2 * DeltaGsnorm__)
-    dNdT__ = N0 * Z__ * Beta__ * e**(- DeltaGsnorm__)/(1 +  DeltaGsnorm__)
+    dNdT__ = N0 * Z__ * Beta__ * e**(- DeltaGsnorm__)
+    # /(1 + DeltaGsnorm__)
+    # print(f'dNdT__:{dNdT__}) 
     return dNdT__
 
 def Rp(Rs__, Gamma_, param3_):
-    Rp__ =param3_* ( Rs__ + (K*T/(pi*Delta*Gamma_)**0.5)/2. )
+    Rp__ = param3_* ( Rs__ + (K*T/(pi*Delta*Gamma_)**0.5)/2. )
     return Rp__
 
-def CalculateNucleation(KWNcounter, dNdT_, dt, Rp_, ND, PR): #after converting to Decimal, this function doesn't need to know KWNcounter
-    dt = tf.Variable(float(dt), trainable = False, dtype=np.float32)
-    ND = tf.tensor_scatter_nd_update(ND, [[KWNcounter-1]], [dNdT_*dt*3600.], name=None)
+def CalculateNucleation(KWNcounter, dNdT_, dt_, Rp_, ND, PR): #after converting to Decimal, this function doesn't need to know KWNcounter
+    dt_var = tf.Variable(float(dt_), trainable = False, dtype=np.float32)
+    ND = tf.tensor_scatter_nd_update(ND, [[KWNcounter-1]], [dNdT_*dt_var*3600.], name=None)
     PR = tf.tensor_scatter_nd_update(PR, [[KWNcounter-1]], [Rp_], name=None)
     return ND, PR
 
@@ -310,9 +305,9 @@ def physics_adam():
     Yield_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False) # because the 0th time step doesn't have any associated YS prediction
     Tau_c_t = tf.Variable(tf.zeros([time_steps-1, 2]), trainable=False, dtype=tf.float32) #weak and strong
 
-    Gamma =  0.039
+    Gamma =  0.04
     Mppt = 3.1   #[1] 3.1
-    coars_coeff = 2.5e-3 #1e-3 #the smaller, the later the peak
+    coars_coeff = 5.e-3 #1e-3 #the smaller, the later the peak
 
     wtp_Mg = 0.55
     wtp_Si = 0.82 
@@ -336,7 +331,7 @@ def physics_adam():
     Rp_ = Rp(Rs_, Gamma, param3)
     dNdT_ = dNdT(Z_, Beta_, DeltaGsnorm_)
     KWNcounter = 1
-    ND, PR = CalculateNucleation(KWNcounter, dNdT_, dt, Rp_, ND, PR)
+    ND, PR = CalculateNucleation(KWNcounter, dNdT_, dt_array[0], Rp_, ND, PR)
 
     print(f'Delivered by CalculateNucleation:')
     print(f'param2_exp: {tf.exp(param2)}')
@@ -353,10 +348,11 @@ def physics_adam():
     for KWNcounter in range(1, time_steps):
         
         t = time_[KWNcounter]
+        dt_current = dt_array[KWNcounter]
         
         # print(f'==============================counter: {KWNcounter}======time: {t}==========')
 
-        ND, PR = CalculateGrowth(KWNcounter, dt, xm_Mg, xm_Si, Rs_, ND, PR, Gamma, coars_coeff, param4, param5)
+        ND, PR = CalculateGrowth(KWNcounter, dt_current, xm_Mg, xm_Si, Rs_, ND, PR, Gamma, coars_coeff, param4, param5)
 
         # xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t,  MPR_t, Yield_t, Tau_c_t, Sigma_ppt_t, TND, MPR, TVF = CalculateVF(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, Yield_t, TVF_t, TND_t, MPR_t, Mppt, Tau_c_t, Sigma_ppt_t, rpc)
         xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t, MPR_t = Update(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, TVF_t, TND_t, MPR_t)
@@ -395,8 +391,9 @@ def physics_adam():
 
     basic_loss = loss_function(Yield_t, Yield_interpolated)
 
-    # loss_ = basic_loss
-    loss_ = basic_loss + lambda_l2 * loss_unity + lambda_l3 * loss_p1p4 + lambda_l4 * loss_p1p2 + lambda_l5 * loss_p1p5
+    loss_ = basic_loss
+    # loss_ = basic_loss + lambda_l2 * loss_unity + lambda_l3 * loss_p1p4 + lambda_l4 * loss_p1p2 + lambda_l5 * loss_p1p5
+    # loss_ = basic_loss + lambda_l3 * loss_p1p4 + lambda_l4 * loss_p1p2 + lambda_l5 * loss_p1p5
     
     error_percentage = tf.reduce_mean(tf.abs((Yield_t - Yield_interpolated) / Yield_interpolated)) * 100
     

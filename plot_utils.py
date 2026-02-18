@@ -261,7 +261,7 @@ def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, Total
 
     # Plot Total Volume Fraction
     fig, ax = plt.subplots()
-    ax.set(xscale='linear', xlabel='Time (h)', ylabel='Total volume fraction', title='Total volume fraction vs. time')
+    ax.set(xscale='log', xlabel='Time (h)', ylabel='Total volume fraction', title='Total volume fraction vs. time')
     ax.scatter(time[1:], TotalVolFraction_t, color='blue', s=5)
     ax.legend(['Total volume fraction'], loc='lower right')
     # ax.set_ylim([0, 0.01])
@@ -270,15 +270,13 @@ def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, Total
 
     # Plot Yield Strength
     fig, ax = plt.subplots()
-    ax.set(xscale='linear', xlabel='Time (h)', ylabel='Yield strength (MPa)', title='Yield strength vs. time')
+    ax.set(xscale='log', yscale='log', xlabel='Time (h)', ylabel='Yield strength (MPa)', title='Yield strength vs. time')
     ax.scatter(time[1:], Yield_t, color='blue', s=5)
     ax.scatter(time[1:], Yield_interpolated, color='grey', s=5)
     ax.scatter(x, y, color='red', s=30, marker='x')
     ax.legend(['Predicted', 'Interpolated experimental', 'Experimental'])
     plt.savefig(f'./plots/mc{mc_run}_YS_physics@{iteration}.png')
     plt.close()
-
-
 
 
 # def visual_comparison():
