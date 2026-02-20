@@ -48,9 +48,8 @@ pchip_hv = PchipInterpolator(x_hv_log, exp_hv_val)
 
 class KWNModel(tf.Module):
     def __init__(self):
-        # --- TRAINABLE VARIABLE: M ONLY ---
-        # Initialize near your guess (3.1)
-        self.M = tf.Variable(3.1, dtype=tf.float32, name="M")
+        # --- TRAINABLE VARIABLE ---
+        self.M = tf.Variable(3.0, dtype=tf.float32, name="M")
         
         # --- FIXED CONSTANTS ---
         self.R_gas = 8.314
@@ -68,8 +67,6 @@ class KWNModel(tf.Module):
         self.D0 = 2.5e-4
         self.Qs = 45350.
         self.Cs = 6.8
-        
-        # Strength Constants
         self.gamma = 0.16
         self.beta = 0.46
         self.k_Mg = 29.0e6
@@ -103,10 +100,13 @@ class KWNModel(tf.Module):
         D = self.D0 * tf.math.exp(-self.Qd / (self.R_gas * self.T))
         Ce = self.Cs * tf.math.exp(-self.Qs / (self.R_gas * self.T))
         
-        # 2. Initialization
-        current_ND = 1.0e12
-        current_PR = 0.5e-9
-        current_C_bar = self.C_total_Mg
+        # FIX 1: Enforce float32 Pi to prevent float64 casting disconnections
+        PI = tf.constant(np.pi, dtype=tf.float32)
+        
+        # FIX 2: Initialize loop-carried state variables as Tensors
+        current_ND = tf.constant(1.0e12, dtype=tf.float32)
+        current_PR = tf.constant(0.5e-9, dtype=tf.float32)
+        current_C_bar = tf.constant(self.C_total_Mg, dtype=tf.float32)
         
         # TensorArrays to store history
         ND_hist = tf.TensorArray(tf.float32, size=self.n_steps)
@@ -125,170 +125,85 @@ class KWNModel(tf.Module):
             dt = self.dt_seconds[i]
             
             # --- A. NUCLEATION ---
-            # Soft switching for Driving Force
             supersat = tf.nn.relu(current_C_bar - Ce) 
             ln_S = tf.math.log((supersat + Ce) / Ce)
-            
-            # Activation switch (Soft sigmoid)
             is_supersat = tf.math.sigmoid((current_C_bar - Ce) * 1e5)
             
             barrier = (self.A0 / (self.R_gas * self.T))**3 * (1.0 / (ln_S**2 + 1e-9))
-            # Rate J
             nucleation_rate = self.j0 * tf.math.exp(-barrier) * tf.math.exp(-self.Qd/(self.R_gas*self.T))
 
-
-
             dN = nucleation_rate * dt * is_supersat
-            
             current_ND = current_ND + dN
 
-
-            
             # 1. Calculate Critical Radius (r*)
-            # The size at which particles are stable.
-            # Avoid division by zero if ln_S is small/negative
             safe_ln_S = tf.math.softplus(ln_S) + 1e-6
             r_star = (2 * self.gamma * self.vm) / (self.R_gas * self.T * safe_ln_S)
             
-            # 2. Nucleation Radius usually slightly larger than r* (e.g., 1.05x)
+            # 2. Nucleation Radius
             r_nucleated = r_star * 1.05
             
-            # 3. Weighted Average: Blend existing radius with new nuclei radius
-            # If dN is small, this doesn't change much. If dN is huge (nucleation burst),
-            # this bumps the average radius UP to r*, allowing growth to start.
-            
-            # We use (current_ND - dN) because current_ND was just updated above
+            # 3. Weighted Average
             prev_ND = current_ND - dN
-
-            # Numerator: Mass balance of radii
-            # If start of sim: prev_ND=0, so this term vanishes (correctly).
             radius_moment = (prev_ND * current_PR) + (dN * r_nucleated)
-
-            # Denominator: Total N
-            # FIX: Add epsilon instead of clamping. 
-            # This ensures the gradient is never exactly zero.
             safe_denom = current_ND + 1e-9
-
-            # Calculate the mixed radius directly
             mixed_radius = radius_moment / safe_denom
             
-            # Steepness of 10.0 makes the switch happen quickly around N=1.0
             is_established = tf.math.sigmoid((current_ND - 1.0) * 10.0)
-            
-            # Only apply this mixing if we are actually nucleating
-            # (Use soft mixing for differentiability)
-            # Smoothly blend between the two states
             current_PR = (1.0 - is_established) * r_nucleated + (is_established * mixed_radius)
 
-
-# ==========================================
+            # ==========================================
             # B. GROWTH & COARSENING (LSW HYBRID)
             # ==========================================
-            
-            # 1. Gibbs-Thomson (Interface Concentration)
-            # We add 1e-12 to PR to protect against division by zero if PR were to ever hit 0
             Ci = Ce * tf.math.exp((2 * self.gamma * self.vm) / (self.R_gas * self.T * (current_PR + 1e-12)))
-            
-            # 2. Define the Two Rates (Growth vs Coarsening)
-            
-            # Rate A: Diffusion-Limited Growth (Zener)
-            # Note: We calculate this regardless, but only use it if Growing.
-            # (current_C_bar - Ci) determines direction. 
             rate_growth = ((current_C_bar - Ci) / (self.Cp - Ci)) * (D / (current_PR + 1e-12))
             
-            # Rate B: LSW Coarsening (Ostwald Ripening)
-            # Formula: dr/dt = K / r^2
             k_coarse = (8 * self.gamma * self.vm * D * Ce) / (9 * self.R_gas * self.T)
-            rate_coarse = (k_coarse / (current_PR**2 + 1e-12)) * self.coarse_factor
-            
-            # 3. Soft Switching Logic (The "If" Statement replacement)
-            # We check the driving force: (C_bar - Ci). 
-            # Large positive -> Growth. Negative/Zero -> Coarsening.
-            # The '1e5' scale makes the transition sharp but differentiable.
+            rate_coarse = (k_coarse / (tf.square(current_PR) + 1e-12)) * self.coarse_factor
             
             driving_force = current_C_bar - Ci
             is_growing = tf.math.sigmoid(driving_force * 1e5) 
-            
-            # 4. Blend the Rates
-            # If is_growing is 1.0, we get rate_growth. 
-            # If is_growing is 0.0, we get rate_coarse.
-            # This allows smooth gradient flow during the transition.
             dr_dt = (is_growing * rate_growth) + ((1.0 - is_growing) * rate_coarse)
 
-            # 5. Update Radius
             current_PR = current_PR + dr_dt * dt
-            
-            # 6. Final Clamp (Soft ReLU)
-            # Replaces: if current_PR < 5e-10: current_PR = 5e-10
-            # This keeps the gradient alive even if we hit the floor.
             current_PR = tf.nn.relu(current_PR - 5e-10) + 5e-10
 
-
-# ==========================================
+            # ==========================================
             # C. COARSENING & MASS BALANCE (FIXED)
             # ==========================================
             
-            # 1. Update Density with Nucleation first
-            current_ND = current_ND + dN
-            
-            # 2. Check Volume Fraction
-            vol_frac_current = current_ND * (4.0/3.0) * np.pi * (current_PR**3)
+            # Update Density with Nucleation first (Ensure PI is used)
+            vol_frac_current = current_ND * (4.0/3.0) * PI * tf.pow(current_PR, 3.0)
             current_C_bar = self.C_total_Mg - (self.Cp * vol_frac_current)
             
-            # 3. COARSENING TRIGGER (RELAXED)
-            # FIX: We use a higher threshold (Ce * 5.0) because Gibbs-Thomson 
-            # keeps C_bar slightly elevated above Ce. 
-            # If we wait for 1.05 * Ce, we might never trigger.
-            # We also ensure we have a significant volume fraction before triggering.
-            
-            depletion_threshold = Ce * 5.0  # roughly 0.00025
+            depletion_threshold = Ce * 5.0  
             is_depleted = tf.math.sigmoid((depletion_threshold - current_C_bar) * 1e5) 
             
-            # 4. Force Density Drop (LSW Simulation)
-            # FIX: Use Exponential Decay for stability with large dt
             decay_rate = 8e-7 * self.coarse_factor 
             decay_factor = tf.math.exp(-decay_rate * dt)
-            
             N_decayed = current_ND * decay_factor
             
-            # Apply decay only if depleted
             current_ND = (1.0 - is_depleted) * current_ND + is_depleted * N_decayed
             
-            # 5. VOLUME CONSERVATION ("The Jump")
-            # If N drops, R must increase to keep volume constant.
-            
-            # Calculate the radius required to hold the current volume with the new (lower) N
-            r_mass_balance = tf.pow( (3.0 * vol_frac_current) / (4.0 * np.pi * (current_ND + 1e-12)), 1.0/3.0)
-            
-            # Update Radius:
-            # When depleted, SNAP the radius to the mass balance value.
+            # Use PI and tf.pow to maintain strict tensor operations
+            r_mass_balance = tf.pow( (3.0 * vol_frac_current) / (4.0 * PI * (current_ND + 1e-12)), 1.0/3.0)
             current_PR = (1.0 - is_depleted) * current_PR + is_depleted * r_mass_balance
-
-            # Ensure C_bar doesn't drop below Ce
             current_C_bar = tf.maximum(current_C_bar, Ce)
 
             # --- D. PROPERTIES (STRENGTH) ---
-            # 1. Solid Solution
             C_si = self.C_total_Si * (current_C_bar / self.C_total_Mg)
             sigma_ss = self.k_Mg * tf.pow(tf.maximum(current_C_bar, 1e-9), 2/3) + \
                        self.k_Si * tf.pow(tf.maximum(C_si, 1e-9), 2/3)
             
-            # 2. Precipitation Hardening
             f = vol_frac_current
-            # Soft switch for cutting vs bypassing (rc)
-            # Cutting: r < rc
+            # Ensure PI is used here as well
             sig_cut = self.M * 2 * self.beta * self.G * (self.b / self.rc) * \
-                      tf.sqrt(3 * f / (2 * np.pi)) * (current_PR / self.rc)
-            
-            # Bypassing: r > rc
+                      tf.sqrt(3 * f / (2 * PI)) * (current_PR / self.rc)
             sig_bypass = self.M * 2 * self.beta * self.G * (self.b / current_PR) * \
-                         tf.sqrt(3 * f / (2 * np.pi))
+                         tf.sqrt(3 * f / (2 * PI))
             
-            # Smooth transition using Sigmoid around rc
             is_bypass = tf.math.sigmoid((current_PR - self.rc) * 1e9)
             sigma_p = (1.0 - is_bypass) * sig_cut + is_bypass * sig_bypass
             
-            # If N is very low (start), sigma_p is 0
             is_precipitated = tf.math.sigmoid((current_ND - 1e10) * 1e-5)
             sigma_p = sigma_p * is_precipitated
             
@@ -319,13 +234,14 @@ model = KWNModel()
 optimizer = tf.optimizers.Adam(learning_rate=0.01) # Slower LR for stability
 
 print("------------------------------------------------")
-print(f"Initial M: {model.M.numpy():.4f}")
-print("Starting Training (Optimizing M)...")
+for var in model.trainable_variables:
+    print(f"Initial {var.name}: {var.numpy():.4f}")
+print("Starting Training...")
 print("------------------------------------------------")
 
 history_loss = []
 
-for epoch in range(1):
+for epoch in range(2):
     with tf.GradientTape() as tape:
         # Run Simulation
         pred_ND, pred_PR, pred_HV, pred_YS, pred_C_bar, pred_Ci, pred_is_growing, pred_rate_growth, pred_rate_coarse, pred_dr_dt = model()
@@ -335,6 +251,8 @@ for epoch in range(1):
 
     # Gradients
     grads = tape.gradient(total_loss, model.trainable_variables)
+    for var, grad in zip(model.trainable_variables, grads):
+        print(f"Epoch {epoch:03d} | Gradient: {var.name}_grad = {grad.numpy():.6e}")
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
     
     history_loss.append(total_loss.numpy())
@@ -343,11 +261,12 @@ for epoch in range(1):
     ys_np = pred_YS.numpy()
     # Calculate Ce once (it's constant)
     Ce = model.Cs * np.exp(-model.Qs / (model.R_gas * model.T))
-    print(f"Epoch {epoch:03d} | Loss: {total_loss.numpy():.4f} | M: {model.M.numpy():.5f} | Ce: {Ce:.6f}")
+    param_str = " | ".join([f"{var.name}: {var.numpy():.5f}" for var in model.trainable_variables])
+    print(f"Epoch {epoch:03d} | Loss: {total_loss.numpy():.4f} | {param_str} | Ce: {Ce:.6f}")
     
     # Print all time steps
     print(f"\n  Time Step Details for Epoch {epoch}:")
-    print(f"  {'Step':<6} {'Time(h)':<10} {'ND(m^-3)':<15} {'R(Å)':<10} {'HV':<8} {'C_bar':<10} {'Ci':<10} {'Ce':<10} {'is_grow':<8} {'r_grow':<12} {'r_coarse':<12} {'dr_dt':<12}")
+    print(f"  {'Step':<6} {'Time(h)':<10} {'ND(m^-3)':<15} {'R(Å)':<10} {'HV':<8} {'C_bar':<10} {'Ci':<10}")
     print(f"  {'-'*6} {'-'*10} {'-'*15} {'-'*10} {'-'*8} {'-'*10} {'-'*10} {'-'*10} {'-'*8} {'-'*12} {'-'*12} {'-'*12}")
     time_s = model.time_seconds.numpy()
     nd_np = pred_ND.numpy()
@@ -360,7 +279,7 @@ for epoch in range(1):
     rate_coarse_np = pred_rate_coarse.numpy()
     dr_dt_np = pred_dr_dt.numpy()
     for i in range(0, len(time_s), max(1, len(time_s)//20)):
-        print(f"  {i:<6} {time_s[i]/3600:<10.4f} {nd_np[i]:<15.2e} {pr_np[i]:<10.2f} {hv_np[i]:<8.2f} {c_bar_np[i]:<10.4f} {ci_np[i]:<10.4f} {Ce:<10.6f} {is_growing_np[i]:<8.4f} {rate_growth_np[i]:<12.2e} {rate_coarse_np[i]:<12.2e} {dr_dt_np[i]:<12.2e}")
+        print(f"  {i:<6} {time_s[i]/3600:<10.4f} {nd_np[i]:<15.2e} {pr_np[i]:<10.2f} {hv_np[i]:<8.2f} {c_bar_np[i]:<10.4f} {ci_np[i]:<10.4f}")
     print()
     
     # Plot for every epoch
@@ -372,7 +291,8 @@ for epoch in range(1):
     fig, axs = plt.subplots(3, 1, figsize=(10, 16), sharex=True)
     yerr = [target_den_val.numpy() * 0.2, target_den_val.numpy() * 0.2]
     
-    axs[0].plot(time_s, nd_np, 'b-', linewidth=2, label=f'Model (M={model.M.numpy():.3f})')
+    param_label = ", ".join([f"{var.name}={var.numpy():.3f}" for var in model.trainable_variables])
+    axs[0].plot(time_s, nd_np, 'b-', linewidth=2, label=f'Model ({param_label})')
     axs[0].errorbar(exp_den_time, target_den_val.numpy(), yerr=yerr, fmt='bs', 
                     markersize=8, markerfacecolor='none', markeredgewidth=2, 
                     capsize=5, capthick=2, label='Exp. Data')
@@ -403,7 +323,8 @@ for epoch in range(1):
     plt.close()
 
 print("------------------------------------------------")
-print(f"Final Optimized M: {model.M.numpy():.5f}")
+for var in model.trainable_variables:
+    print(f"Final Optimized {var.name}: {var.numpy():.5f}")
 print("------------------------------------------------")
 
 # ==========================================
@@ -447,7 +368,8 @@ fig, axs = plt.subplots(3, 1, figsize=(10, 16), sharex=True)
 # (Since we don't have the original file, we mock 10% error bars for visual fidelity to original request)
 yerr = [target_den_val.numpy() * 0.2, target_den_val.numpy() * 0.2] 
 
-axs[0].plot(time_s, nd_np, 'b-', linewidth=2, label=f'Model (M={model.M.numpy():.3f})')
+param_label = ", ".join([f"{var.name}={var.numpy():.3f}" for var in model.trainable_variables])
+axs[0].plot(time_s, nd_np, 'b-', linewidth=2, label=f'Model ({param_label})')
 axs[0].errorbar(exp_den_time, target_den_val.numpy(), yerr=yerr, fmt='bs', 
                 markersize=8, markerfacecolor='none', markeredgewidth=2, 
                 capsize=5, capthick=2, label='Exp. Data')
