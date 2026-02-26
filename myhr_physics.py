@@ -33,7 +33,7 @@ exp_rad_val = np.array([
 ])
 
 # -- Hardness (HV) --
-exp_hv_time = np.array([0.1, 0.5, 1.0, 3.0, 10.0, 100.0]) * 3600.0 
+exp_hv_time = exp_den_time
 exp_hv_val  = np.array([55, 80, 100, 115, 110, 85]) 
 
 # ==========================================
