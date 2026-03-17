@@ -4,7 +4,6 @@
 
 import time
 import numpy as np
-import numpy as np
 import matplotlib.pyplot as plt
 import os
 import math
@@ -265,14 +264,6 @@ def Strength(KWNcounter, ND, PR, rpc_, xm_Mg, xm_Si, Mppt, Yield_t_, Tau_c_t, Si
     # loss_function = tf.keras.losses.MeanSquaredError()
 def loss_function(var1, var2):
     return tf.reduce_mean(tf.abs(var1 - var2))
-
-# param1 = tf.Variable(param1_init, trainable = True, dtype=np.float32)
-# param2 = tf.Variable(param2_init, trainable = True, dtype=np.float32)
-# param3 = tf.Variable(param3_init, trainable = True, dtype=np.float32)
-# param4 = tf.Variable(param4_init, trainable = True, dtype=np.float32)
-# param5 = tf.Variable(param5_init, trainable = True, dtype=np.float32)
-# paramrpc = tf.Variable(0.85, trainable = False, dtype=np.float32)
-
 
 loss_t = []
 loss_basic_t = []

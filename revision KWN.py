@@ -66,7 +66,7 @@ c03 = 10 #+ #[s]
 #modelling parameter
 # seed_value = 16
 # tf.random.set_seed(seed_value)
-N_optimizer = 1000 
+N_optimizer = 2000 
 dt = 1. #(h)
 LR_param1 = 0.1
 LR_param2 = 0.001
@@ -272,15 +272,6 @@ def Strength(KWNcounter, ND, PR, rpc_, xm_Mg, xm_Si, Mppt, Yield_t_, Tau_c_t, Si
     # loss_function = tf.keras.losses.MeanSquaredError()
 def loss_function(var1, var2):
     return tf.reduce_mean(tf.abs(var1 - var2))
-
-
-
-
-
-
-
-
-
 
 
 

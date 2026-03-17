@@ -1,0 +1,56 @@
+Monte Carlo Run 5 - Setup and Configuration Log
+============================================================
+
+EXPERIMENTAL DATA:
+exp_den_time = [1810.1, 3618.8, 14300.9, 29919.6, 59140.7, 270893.8]
+target_den_val = [3.2399999101212054e+22, 3.2399999101212054e+22, 2.560000051304646e+22, 2.1499999973482026e+22, 2.320000074642333e+22, 1.1800000306851097e+21]
+target_rad_val = [32.5, 39.29999923706055, 46.5, 49.79999923706055, 48.70000076293945, 131.0]
+exp_hv_time = [1810.1, 3618.8, 14300.9, 29919.6, 59140.7, 270893.8]
+exp_hv_val = [75.9, 85.8, 95.1, 95.1, 93.2, 71.7]
+
+PHYSICAL CONSTANTS:
+R_GAS = 8.314
+TEMP = 458.15
+B_VEC = 2.84e-10
+G_MOD = 27000000000.0
+RC = 4e-09
+C_TOT_MG = 0.55
+VM = 7.62e-05
+CP = 59.0
+GAMMA_BASE = 0.16
+M = 2.1
+N_STEPS = 50
+
+OPTIMIZATION SETTINGS:
+N_MC_RUNS = 10
+N_ITERATIONS = 1000
+LR_ADAM = 0.001
+LR_p1 = 1.0
+LR_p2 = 1.0
+LR_p3 = 1.0
+LR_p4 = 1.0
+LR_p5 = 1.0
+PARAM_MIN = 0.1
+PARAM_MAX = 2.0
+CLIP_p1 = 10.0
+CLIP_p2 = 10.0
+CLIP_p3 = 10.0
+CLIP_p4 = 10.0
+CLIP_p5 = 10.0
+
+INITIAL PARAMETER VALUES:
+latent_p1 = -0.018031
+latent_p2 = 0.022653
+latent_p3 = 0.146655
+latent_p4 = 0.003700
+latent_p5 = -0.124056
+
+p1 (initial) = 1.041436
+p2 (initial) = 1.060760
+p3 (initial) = 1.119536
+p4 (initial) = 1.051758
+p5 (initial) = 0.991149
+
+TIME GRID:
+Time range: 360.00 to 300000.06 seconds
+Time range: 0.1000 to 83.33 hours

@@ -98,7 +98,7 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         # nse_percent = nse_score(Yield_t, Yield_interpolated)
 
         fig, ax = plt.subplots()
-        ax.set(xscale='linear', xlabel='Time (h)', ylabel='Yield strength (MPa)', title=f'Yield strength vs. time at iteration {iteration}')
+        ax.set(xscale='linear', xlabel='Time (h)', ylabel='Yield strength (MPa)')
         ax.scatter(time[1:], Yield_t, color = 'blue', s=5) 
         ax.scatter(time[1:], Yield_interpolated, color = 'grey', s=5)
         ax.scatter(x, y, color = 'red', s=30, marker = 'x')
@@ -143,10 +143,11 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
 
     if(iteration % 10 == 0):
         fig, ax = plt.subplots()
-        ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss', title=f'MSE at iteration {iteration}')
+        ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss')
         ax.plot(loss_t, color = 'blue')
         ax.legend(['loss'])
         path = os.path.join('./plots', f'mc{mc_run}_loss_{optimizer}@{iteration}.png')
+        plt.tight_layout()
         plt.savefig(path)
         # plt.show()
 
@@ -156,24 +157,9 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         os.makedirs(os.path.dirname(loss_excel_path), exist_ok=True)
         df_loss.to_excel(loss_excel_path, index=False)
 
-        if loss_basic_t is not None:
-            fig, ax = plt.subplots()
-            ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Basic loss', title=f'loss_basic at iteration {iteration}')
-            ax.plot(loss_basic_t, color = 'blue')
-            ax.legend(['Basic loss'])
-            path = os.path.join('./plots', f'mc{mc_run}_Loss_basic{optimizer}@{iteration}.png')
-            plt.savefig(path)
-
-            basic_loss_excell_path = os.path.join('./plots', f'mc{mc_run}_Basic_loss{optimizer}.xlsx')
-            Basic_loss = {'Iteration': list(range(len(loss_basic_t))), 'Basic loss': loss_basic_t}
-            df_diff = pd.DataFrame(Basic_loss)
-            os.makedirs(os.path.dirname(basic_loss_excell_path), exist_ok=True)
-            df_diff.to_excel(basic_loss_excell_path, index=False)
-
     if(iteration % 10 == 0):
         fig, ax = plt.subplots()
-        ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Parameter', title='Parameter vs. iterations')
-        ax.set_title('Parameters vs. iterations')
+        ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Parameter')
         ax.set_xlabel('Iterations (#)')
         ax.set_ylabel('Parameters')
         ax.plot(param1_t)
@@ -200,34 +186,6 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         os.makedirs(os.path.dirname(param_excel_path), exist_ok=True)
         df_params.to_excel(param_excel_path, index=False)
 
-            # if(iteration <= N_optimizer-1):
-    #     fig, ax = plt.subplots()
-    #     ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='gradients', title='Gradients vs. iterations')
-    #     ax.set_title('Gradients vs. iterations')
-    #     ax.set_xlabel('Iterations (#)')
-    #     ax.set_ylabel('Gradients')
-    #     ax.plot(grad1_t)
-    #     ax.plot(grad2_t)
-    #     ax.plot(grad3_t)
-    #     ax.plot(grad4_t)
-    #     ax.plot(grad5_t)
-    #     ax.legend(['grad1', 'grad2', 'grad3', 'grad4', 'grad5'])
-    #     path = os.path.join('./plots', f'gradients.png')
-    #     plt.savefig(path)
-
-    # if(iteration % 10 == 0 or iteration == 1):
-    #     fig, ax = plt.subplots()
-    #     ax.set(xscale='linear', xlabel='Time (h)', ylabel='Yield strength (MPa)', title=f'Yied strength vs. time at iteration {iteration}')
-    #     # ax.set(xscale='linear', xlabel='Time (h)', ylabel='Yield strength (MPa)', title=f'Yied strength vs. time')
-    #     ax.scatter(time, [1000.*x for x in Yield_t], color = 'blue', s=5)
-    #     # ax.scatter(time[::1], [1000.*t for t in training], color = 'red', s=5) ###
-    #     ax.scatter(data_x, data_y, color = 'black')
-    #     # ax.legend(['predictions', 'synthetic data', 'experimental data']) 
-    #     ax.legend(['predictions', 'experimental data']) 
-    #     path = os.path.join('D:/PhD/Implementation/AI', f'YS prediction vs. synthetic @{iteration+1}.png')
-    #     plt.savefig(path)
-    #     plt.show()
-
     plt.close('all')
 
 def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, Yield_interpolated, x, y, iteration=0, mc_run=0):
@@ -240,7 +198,7 @@ def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, Total
     tnd_x = np.array([0.5, 1., 4., 8., 16., 76.])
     tnd_y = np.array([3.247514e+22, 3.247514e+22, 2.565907e+22, 2.154435e+22, 2.324538e+22, 1.181972e+21])
     fig, ax = plt.subplots()
-    ax.set(xscale='log', yscale='log', xlabel='Time (h)', ylabel='Total number density', title='Total number density vs. time')
+    ax.set(xscale='log', yscale='log', xlabel='Time (h)', ylabel='Total number density')
     ax.scatter(time[1:], TotalNumberDensity_t, color='blue', s=5)
     ax.scatter(tnd_x, tnd_y, color='red', s=30, marker='x')
     ax.legend(['Total number density', 'Experimental data'])
@@ -252,7 +210,7 @@ def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, Total
     mpr_x = np.array([0.5, 1., 4., 8., 16., 76.])
     mpr_y = np.array([32.538446, 39.358762, 46.533809, 49.833394, 48.708346, 131.025383])*1e-10
     fig, ax = plt.subplots()
-    ax.set(xscale='log', yscale='log', xlabel='Time (h)', ylabel='Mean particle radius (m)', title='Mean particle radius vs. time')
+    ax.set(xscale='log', yscale='log', xlabel='Time (h)', ylabel='Mean particle radius (m)')
     ax.scatter(time[1:], MeanParticleRadius_t, color='blue', s=5)
     ax.scatter(mpr_x, mpr_y, color='red', s=30, marker='x')
     ax.legend(['Total number density', 'Experimental data'])
@@ -261,7 +219,7 @@ def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, Total
 
     # Plot Total Volume Fraction
     fig, ax = plt.subplots()
-    ax.set(xscale='log', xlabel='Time (h)', ylabel='Total volume fraction', title='Total volume fraction vs. time')
+    ax.set(xscale='log', xlabel='Time (h)', ylabel='Total volume fraction')
     ax.scatter(time[1:], TotalVolFraction_t, color='blue', s=5)
     ax.legend(['Total volume fraction'], loc='lower right')
     # ax.set_ylim([0, 0.01])
@@ -270,7 +228,7 @@ def plot_physics_results(time, TotalNumberDensity_t, MeanParticleRadius_t, Total
 
     # Plot Yield Strength
     fig, ax = plt.subplots()
-    ax.set(xscale='log', yscale='log', xlabel='Time (h)', ylabel='Yield strength (MPa)', title='Yield strength vs. time')
+    ax.set(xscale='log', yscale='log', xlabel='Time (h)', ylabel='Yield strength (MPa)')
     ax.scatter(time[1:], Yield_t, color='blue', s=5)
     ax.scatter(time[1:], Yield_interpolated, color='grey', s=5)
     ax.scatter(x, y, color='red', s=30, marker='x')

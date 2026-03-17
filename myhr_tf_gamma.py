@@ -14,10 +14,19 @@ if not os.path.exists(output_folder): os.makedirs(output_folder)
 
 # Experimental Targets
 exp_den_time = np.array([1810.1, 3618.8, 14300.9, 29919.6, 59140.7, 270893.8])
+exp_hv_time = exp_den_time
+
 target_den_val = tf.constant([3.24e22, 3.24e22, 2.56e22, 2.15e22, 2.32e22, 1.18e21], dtype=tf.float32)
 target_rad_val = tf.constant([32.5, 39.3, 46.5, 49.8, 48.7, 131.0], dtype=tf.float32) 
-exp_hv_time = exp_den_time
-exp_hv_val  = np.array([55, 80, 100, 115, 110, 85])
+# exp_hv_val  = np.array([55, 80, 100, 115, 110, 85])
+exp_hv_val  = np.array([75.9, 85.8, 95.1, 95.1, 93.2, 71.7])
+
+hv_top = [77.9, 87.9, 97.0, 96.9, 94.8, 73.8]
+hv_bottom = [73.8, 84.0, 93.3, 93.2, 91.2, 69.9]
+mpr_top = [42.79616, 50.59788, 59.36818, 64.55315, 63.09573, 168.4404]
+mpr_bottom = [22.75228, 27.10552, 32.2917, 34.58144, 34.3192, 91.61857]
+tnd_top = [4.14e22, 4.2e22, 3.3e22, 2.77e22, 2.99e22, 1.52e21]
+tnd_bottom = [2.24e22, 2.27e22, 1.78e22, 1.53e22, 1.63e22, 1e21]
 
 # Interpolation for Hardness (Target)
 # 1. Add an anchor point to prevent extrapolation artifacts
@@ -41,13 +50,13 @@ R_GAS = 8.314
 TEMP = 185.0 + 273.15
 B_VEC = 2.84e-10
 G_MOD = 2.7e10
-RC = 5.0e-9 
+RC = 4.0e-9 
 C_TOT_MG = 0.55
 VM = 7.62e-5
 CP = 59.0
-GAMMA_BASE = 0.16 
+GAMMA_BASE = 0.16
 N_STEPS = 50
-M = 3.1
+M = 2.1
 
 # Time Grid
 time_seconds = tf.pow(10.0, tf.linspace(tf.math.log(360.0)/tf.math.log(10.0), tf.math.log(300000.0)/tf.math.log(10.0), N_STEPS))
@@ -62,7 +71,7 @@ def run_physics_simulation(params):
     """
     params: 
     p1: Ci equation (Gamma multiplier)
-    p2: Nucleation rate
+    p2: Artificial decay rate multiplier (Controls Peak to Overaged transition)
     p3: Growth rate coefficient
     p4: Growth rate parameter
     p5: Strength model multiplier
@@ -70,7 +79,7 @@ def run_physics_simulation(params):
     p1, p2, p3, p4, p5 = params
     
     # Dependent Constants
-    D = 2.5e-4 * tf.math.exp(-130000. / (R_GAS * TEMP))
+    D = 0.5e-4 * tf.math.exp(-130000. / (R_GAS * TEMP))
     Ce = 6.8 * tf.math.exp(-45350. / (R_GAS * TEMP))
     PI = tf.constant(np.pi, dtype=tf.float32)
     
@@ -92,7 +101,9 @@ def run_physics_simulation(params):
         supersat = tf.nn.relu(current_C_bar - Ce)
         ln_S = tf.math.log((supersat + Ce) / Ce)
         barrier = (30000.0 / (R_GAS * TEMP))**3 * (1.0 / (ln_S**2 + 1e-9))
-        nucleation_rate =  1.8e35 * tf.math.exp(-barrier * tf.pow(p2, 3)) * tf.math.exp(-130000./(R_GAS*TEMP))
+        
+        # p2 is removed from here; nucleation barrier is now determined purely by thermodynamics
+        nucleation_rate =  5.e35 * tf.math.exp(-barrier) * tf.math.exp(-130000./(R_GAS*TEMP))
         
         dN = nucleation_rate * dt * tf.math.sigmoid((current_C_bar - Ce) * 1e5)
         current_ND += dN
@@ -120,12 +131,12 @@ def run_physics_simulation(params):
         cbar_temp = C_TOT_MG - (CP * vol_frac_temp)
         
         # 2. Setup the depletion threshold trigger
-        # Triggers when matrix is highly depleted (near 5x Ce as in Code 2)
         depletion_threshold = Ce * 5.0  
         is_depleted = tf.math.sigmoid((depletion_threshold - cbar_temp) * 1e5) 
         
         # 3. Apply the Artificial Exponential Decay to Number Density
-        decay_rate = 8e-7 * 10.0 
+        # REPOSITIONED p2: It now acts as a trainable multiplier for the decay rate!
+        decay_rate = p2 * 5.e-6
         decay_factor = tf.math.exp(-decay_rate * dt)
         N_decayed = current_ND * decay_factor
         
@@ -133,7 +144,6 @@ def run_physics_simulation(params):
         current_ND = (1.0 - is_depleted) * current_ND + is_depleted * N_decayed
         
         # 4. Force Mass Balance on the Radius
-        # Calculate what R must be to maintain the volume fraction with the new dropped ND
         r_mass_balance = tf.pow((3.0 * vol_frac_temp) / (4.0 * PI * (current_ND + 1e-12)), 1.0/3.0)
         
         # Switch PR to the mass balance value if depleted
@@ -163,7 +173,6 @@ def run_physics_simulation(params):
         Cbar_hist = Cbar_hist.write(i, current_C_bar)
 
     return HV_hist.stack(), ND_hist.stack(), PR_hist.stack(), Ci_hist.stack(), Cbar_hist.stack()
-
 # ==========================================
 # 2. MONTE CARLO OPTIMIZATION LOOP
 # ==========================================
@@ -173,17 +182,27 @@ def save_iteration_plots(mc_run, iteration, time_sec, pred_hv, pred_nd, pred_pr,
     mc_folder = os.path.join(folder, f"mc{mc_run}")
     
     time_hrs = time_sec / 3600.0
+    exp_time_hrs = exp_den_time / 3600.0
+    
+    # Calculate error bars
+    hv_err_upper = np.array(hv_top) - np.array(exp_hv_val)
+    hv_err_lower = np.array(exp_hv_val) - np.array(hv_bottom)
+    tnd_err_upper = np.array(tnd_top) - target_den_val.numpy()
+    tnd_err_lower = target_den_val.numpy() - np.array(tnd_bottom)
+    mpr_err_upper = (np.array(mpr_top) - target_rad_val.numpy())/10.
+    mpr_err_lower = (target_rad_val.numpy() - np.array(mpr_bottom))/10.
     
     # Plot 1: Number Density
     nd_folder = os.path.join(mc_folder, "number_density")
     os.makedirs(nd_folder, exist_ok=True)
     plt.figure(figsize=(8, 6))
     plt.loglog(time_hrs, pred_nd, 'b-', linewidth=2, label='Predicted')
-    plt.loglog(exp_den_time/3600.0, target_den_val.numpy(), 'ro', markersize=8, label='Validation Data')
+    plt.errorbar(exp_time_hrs, target_den_val.numpy(), yerr=[tnd_err_lower, tnd_err_upper], 
+                 fmt='ro', markersize=5, capsize=5, label='Validation Data')
     plt.ylim(1e19, 1e23)
     plt.xlabel('Time (hours)', fontsize=12)
-    plt.ylabel('Number Density (m⁻³)', fontsize=12)
-    plt.title(f'Number Density Iteration {iteration}', fontsize=14)
+    plt.ylabel('Total Number Density (m⁻³)', fontsize=12)
+    plt.title(f'Total Number Density Iteration {iteration}', fontsize=14)
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -194,11 +213,12 @@ def save_iteration_plots(mc_run, iteration, time_sec, pred_hv, pred_nd, pred_pr,
     pr_folder = os.path.join(mc_folder, "particle_radius")
     os.makedirs(pr_folder, exist_ok=True)
     plt.figure(figsize=(8, 6))
-    plt.semilogx(time_hrs, pred_pr * 1e9, 'g-', linewidth=2, label='Predicted')
-    plt.semilogx(exp_den_time/3600.0, target_rad_val.numpy()/10, 'ro', markersize=8, label='Validation Data')
+    plt.semilogx(time_hrs, pred_pr * 1e9, 'b-', linewidth=2, label='Predicted')
+    plt.errorbar(exp_time_hrs, target_rad_val.numpy()/10, yerr=[mpr_err_lower, mpr_err_upper], 
+                 fmt='ro', markersize=5, capsize=5, label='Validation Data')
     plt.xlabel('Time (hours)', fontsize=12)
-    plt.ylabel('Particle Radius (nm)', fontsize=12)
-    plt.title(f'Particle Radius Iteration {iteration}', fontsize=14)
+    plt.ylabel('Mean Particle Radius (nm)', fontsize=12)
+    plt.title(f'Mean Particle Radius Iteration {iteration}', fontsize=14)
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -210,9 +230,10 @@ def save_iteration_plots(mc_run, iteration, time_sec, pred_hv, pred_nd, pred_pr,
     os.makedirs(hv_folder, exist_ok=True)
     plt.figure(figsize=(8, 6))
     plt.plot(time_hrs, pred_hv, 'b-', linewidth=2, label='Predicted')
-    plt.plot(exp_hv_time/3600.0, exp_hv_val, 'ro', markersize=8, label='Training Data')
-    plt.plot(time_hrs, target_hv_interp.numpy(), 'ko', linewidth=1.5, alpha=0.7, label='Interpolation')
+    plt.errorbar(exp_time_hrs, exp_hv_val, yerr=[hv_err_lower, hv_err_upper], 
+                 fmt='ro', markersize=5, capsize=5, label='Training Data')
     plt.xscale('log')
+    plt.ylim(40, 150)
     plt.xlabel('Time (hours)', fontsize=12)
     plt.ylabel('Hardness (HV)', fontsize=12)
     plt.title(f'Hardness Iteration {iteration}', fontsize=14)
@@ -223,13 +244,20 @@ def save_iteration_plots(mc_run, iteration, time_sec, pred_hv, pred_nd, pred_pr,
     plt.close()
 
 N_MC_RUNS = 10
-N_ITERATIONS = 500
+N_ITERATIONS = 1000
 LR_p1 = 1.0
-LR_p2 = 1.
-LR_p3 = 1.
+LR_p2 = 1.0
+LR_p3 = 1.0
 LR_p4 = 1.0
 LR_p5 = 1.0
-LR_ADAM = 0.1
+LR_ADAM = 0.001
+
+# Scaling constant for hardness normalization
+HV_SCALE = 100.0
+
+# Parameter bounds for sigmoid mapping
+PARAM_MIN = 0.1
+PARAM_MAX = 2.0
 
 # Gradient clipping values for each parameter
 CLIP_p1 = 10.0
@@ -238,21 +266,91 @@ CLIP_p3 = 10.
 CLIP_p4 = 10.
 CLIP_p5 = 10.
 
+# Storage for all MC runs final predictions
+all_mc_final_predictions = []
+
 for mc in range(1, N_MC_RUNS + 1):
     print(f"\n{'='*60}")
     print(f"Monte Carlo Run {mc}/{N_MC_RUNS}")
     print(f"{'='*60}")
     tf.random.set_seed(mc)
     
-    # Initialize parameters (all trainable)
-    p1 = tf.Variable(tf.random.normal([], mean=1.0, stddev=0.01), name="p1")
-    p2 = tf.Variable(tf.random.normal([], mean=1.0, stddev=0.01), name="p2")
-    p3 = tf.Variable(tf.random.normal([], mean=1.0, stddev=0.01), name="p3")
-    p4 = tf.Variable(tf.random.normal([], mean=1.0, stddev=0.01), name="p4")
-    p5 = tf.Variable(tf.random.normal([], mean=1.0, stddev=0.01), name="p5")
+    # Initialize latent variables (unbounded)
+    latent_p1 = tf.Variable(tf.random.normal([], mean=0.0, stddev=0.1), name="latent_p1")
+    latent_p2 = tf.Variable(tf.random.normal([], mean=0.0, stddev=0.1), name="latent_p2")
+    latent_p3 = tf.Variable(tf.random.normal([], mean=0.0, stddev=0.1), name="latent_p3")
+    latent_p4 = tf.Variable(tf.random.normal([], mean=0.0, stddev=0.1), name="latent_p4")
+    latent_p5 = tf.Variable(tf.random.normal([], mean=0.0, stddev=0.1), name="latent_p5")
     
-    params_list = [p1, p2, p3, p4, p5]
-    trainable_params = [p1, p2, p3, p4, p5]
+    # Calculate initial parameter values
+    initial_p1 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p1)
+    initial_p2 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p2)
+    initial_p3 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p3)
+    initial_p4 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p4)
+    initial_p5 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p5)
+    
+    # Create log file for this MC run
+    log_filename = os.path.join(output_folder, f'mc{mc}_setup_log.txt')
+    with open(log_filename, 'w') as log_file:
+        log_file.write(f"Monte Carlo Run {mc} - Setup and Configuration Log\n")
+        log_file.write(f"{'='*60}\n\n")
+        
+        log_file.write("EXPERIMENTAL DATA:\n")
+        log_file.write(f"exp_den_time = {exp_den_time.tolist()}\n")
+        log_file.write(f"target_den_val = {target_den_val.numpy().tolist()}\n")
+        log_file.write(f"target_rad_val = {target_rad_val.numpy().tolist()}\n")
+        log_file.write(f"exp_hv_time = {exp_hv_time.tolist()}\n")
+        log_file.write(f"exp_hv_val = {exp_hv_val.tolist()}\n\n")
+        
+        log_file.write("PHYSICAL CONSTANTS:\n")
+        log_file.write(f"R_GAS = {R_GAS}\n")
+        log_file.write(f"TEMP = {TEMP}\n")
+        log_file.write(f"B_VEC = {B_VEC}\n")
+        log_file.write(f"G_MOD = {G_MOD}\n")
+        log_file.write(f"RC = {RC}\n")
+        log_file.write(f"C_TOT_MG = {C_TOT_MG}\n")
+        log_file.write(f"VM = {VM}\n")
+        log_file.write(f"CP = {CP}\n")
+        log_file.write(f"GAMMA_BASE = {GAMMA_BASE}\n")
+        log_file.write(f"M = {M}\n")
+        log_file.write(f"N_STEPS = {N_STEPS}\n\n")
+        
+        log_file.write("OPTIMIZATION SETTINGS:\n")
+        log_file.write(f"N_MC_RUNS = {N_MC_RUNS}\n")
+        log_file.write(f"N_ITERATIONS = {N_ITERATIONS}\n")
+        log_file.write(f"LR_ADAM = {LR_ADAM}\n")
+        log_file.write(f"LR_p1 = {LR_p1}\n")
+        log_file.write(f"LR_p2 = {LR_p2}\n")
+        log_file.write(f"LR_p3 = {LR_p3}\n")
+        log_file.write(f"LR_p4 = {LR_p4}\n")
+        log_file.write(f"LR_p5 = {LR_p5}\n")
+        log_file.write(f"PARAM_MIN = {PARAM_MIN}\n")
+        log_file.write(f"PARAM_MAX = {PARAM_MAX}\n")
+        log_file.write(f"CLIP_p1 = {CLIP_p1}\n")
+        log_file.write(f"CLIP_p2 = {CLIP_p2}\n")
+        log_file.write(f"CLIP_p3 = {CLIP_p3}\n")
+        log_file.write(f"CLIP_p4 = {CLIP_p4}\n")
+        log_file.write(f"CLIP_p5 = {CLIP_p5}\n\n")
+        
+        log_file.write("INITIAL PARAMETER VALUES:\n")
+        log_file.write(f"latent_p1 = {latent_p1.numpy():.6f}\n")
+        log_file.write(f"latent_p2 = {latent_p2.numpy():.6f}\n")
+        log_file.write(f"latent_p3 = {latent_p3.numpy():.6f}\n")
+        log_file.write(f"latent_p4 = {latent_p4.numpy():.6f}\n")
+        log_file.write(f"latent_p5 = {latent_p5.numpy():.6f}\n\n")
+        log_file.write(f"p1 (initial) = {initial_p1.numpy():.6f}\n")
+        log_file.write(f"p2 (initial) = {initial_p2.numpy():.6f}\n")
+        log_file.write(f"p3 (initial) = {initial_p3.numpy():.6f}\n")
+        log_file.write(f"p4 (initial) = {initial_p4.numpy():.6f}\n")
+        log_file.write(f"p5 (initial) = {initial_p5.numpy():.6f}\n\n")
+        
+        log_file.write("TIME GRID:\n")
+        log_file.write(f"Time range: {time_seconds.numpy()[0]:.2f} to {time_seconds.numpy()[-1]:.2f} seconds\n")
+        log_file.write(f"Time range: {time_seconds.numpy()[0]/3600:.4f} to {time_seconds.numpy()[-1]/3600:.2f} hours\n")
+    
+    print(f"Setup log saved to: {log_filename}")
+    
+    trainable_params = [latent_p1, latent_p2, latent_p3, latent_p4, latent_p5]
     opt = tf.keras.optimizers.Adam(learning_rate=LR_ADAM)
     
     history_loss = []
@@ -268,9 +366,17 @@ for mc in range(1, N_MC_RUNS + 1):
         iter_start = time.time()
         
         with tf.GradientTape() as tape:
+            # Map latent variables to bounded parameters using sigmoid
+            p1 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p1)
+            p2 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p2)
+            p3 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p3)
+            p4 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p4)
+            p5 = PARAM_MIN + (PARAM_MAX - PARAM_MIN) * tf.math.sigmoid(latent_p5)
+            
+            params_list = [p1, p2, p3, p4, p5]
             pred_hv, pred_nd, pred_pr, pred_ci, pred_cbar = run_physics_simulation(params_list)
             # Loss: Mean Squared Error + L2 Regularization (Unity constraints)
-            basic_loss = tf.reduce_mean(tf.square((pred_hv - target_hv_interp)))
+            basic_loss = tf.reduce_mean(tf.square(pred_hv - target_hv_interp)) /100.0
             reg_loss = 1. * (tf.nn.l2_loss(p1 - 1.0) + tf.nn.l2_loss(p2 - 1.0) + tf.nn.l2_loss(p3 - 1.0) + tf.nn.l2_loss(p4 - 1.0) + tf.nn.l2_loss(p5 - 1.0))
             total_loss = basic_loss + reg_loss
 
@@ -287,11 +393,11 @@ for mc in range(1, N_MC_RUNS + 1):
         clipped_gradients = [tf.clip_by_value(grad, -clip_val, clip_val) for grad, clip_val in zip(gradients, clip_values)]
         
         gradients_and_vars = [
-            (clipped_gradients[0] * LR_p1, p1),
-            (clipped_gradients[1] * LR_p2, p2),
-            (clipped_gradients[2] * LR_p3, p3),
-            (clipped_gradients[3] * LR_p4, p4),
-            (clipped_gradients[4] * LR_p5, p5)
+            (clipped_gradients[0] * LR_p1, latent_p1),
+            (clipped_gradients[1] * LR_p2, latent_p2),
+            (clipped_gradients[2] * LR_p3, latent_p3),
+            (clipped_gradients[3] * LR_p4, latent_p4),
+            (clipped_gradients[4] * LR_p5, latent_p5)
         ]
         opt.apply_gradients(gradients_and_vars)
         
@@ -329,9 +435,7 @@ for mc in range(1, N_MC_RUNS + 1):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
     
     iterations = range(1, len(history_loss) + 1)
-    ax1.plot(iterations, history_loss, 'b-', linewidth=2, label='Total Loss')
-    ax1.plot(iterations, history_basic_loss, 'r--', linewidth=2, label='MSE Loss')
-    ax1.plot(iterations, history_reg_loss, 'g--', linewidth=2, label='Reg Loss')
+    ax1.plot(iterations, history_loss, 'b-', linewidth=2, label='Loss')
     ax1.set_xlabel('Iteration', fontsize=12)
     ax1.set_ylabel('Loss', fontsize=12)
     ax1.set_title(f'Loss History', fontsize=14)
@@ -369,9 +473,34 @@ for mc in range(1, N_MC_RUNS + 1):
     excel_filename = os.path.join(output_folder, f'mc{mc}_training_history.xlsx')
     df.to_excel(excel_filename, index=False)
     print(f"Training history saved to: {excel_filename}")
+    
+    # Store final predictions for this MC run
+    for idx in range(len(time_seconds.numpy())):
+        all_mc_final_predictions.append({
+            'MC_Run': mc,
+            'Time_seconds': time_seconds.numpy()[idx],
+            'Time_hours': time_seconds.numpy()[idx] / 3600.0,
+            'pred_hv': pred_hv.numpy()[idx],
+            'pred_nd': pred_nd.numpy()[idx],
+            'pred_pr': pred_pr.numpy()[idx],
+            'pred_ci': pred_ci.numpy()[idx],
+            'pred_cbar': pred_cbar.numpy()[idx],
+            'target_hv_interp': target_hv_interp.numpy()[idx],
+            'final_p1': p1.numpy(),
+            'final_p2': p2.numpy(),
+            'final_p3': p3.numpy(),
+            'final_p4': p4.numpy(),
+            'final_p5': p5.numpy()
+        })
 
     print(f"\n{'='*60}")
     print(f"Finished MC Run {mc}")
     print(f"Final Parameters: p1={p1.numpy():.6f}, p2={p2.numpy():.6f}, p3={p3.numpy():.6f}, p4={p4.numpy():.6f}, p5={p5.numpy():.6f}")
     print(f"Final Loss: {total_loss.numpy():.6f}")
     print(f"{'='*60}")
+
+# Save all MC runs final predictions to a single Excel file
+df_all_final = pd.DataFrame(all_mc_final_predictions)
+all_final_excel_filename = os.path.join(output_folder, 'all_mc_final_predictions.xlsx')
+df_all_final.to_excel(all_final_excel_filename, index=False)
+print(f"\nAll MC runs final predictions saved to: {all_final_excel_filename}")
