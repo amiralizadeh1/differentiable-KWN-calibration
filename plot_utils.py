@@ -1,3 +1,6 @@
+# amazonQ prompts: 1) seperate the plots of YS and put the loss and paramter plots as horizontal subplots with
+# subplot lables under them indicated by (a) and (b).
+
 import matplotlib
 matplotlib.use('Agg') 
 import matplotlib.pyplot as plt 
@@ -56,131 +59,44 @@ def nse_score(Yield_t, Yield_interpolated):
     return nse_percent
 
 def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, iteration, optimizer, loss_basic_t=None, mc_run = None):
-
-    # y = [1000*i for i in y]
-    # Yield_t = 1000 * Yield_t
-
-    # Yield_interpolated = 1000*Yield_interpolated
-
-
-    # fig, ax = plt.subplots()
-    # ax.set(xscale='linear', xlabel='Time (h)', ylabel='Total number density', title=f'Total number density vs. time at iteration {iteration}')
-    # # ax.set(xscale='linear', xlabel='Time (h)', ylabel='Total number density', title=f'Total number density vs. time')
-    # ax.scatter(time[1:], TotalNumberDensity_t, color = 'blue', s=5)
-    # ax.legend(['Total number density'])  
-    # path = os.path.join('D:/PhD/Implementation/AI', f'TND @{iteration+1}.png')
-    # plt.savefig(path)
-    # plt.show()
-
-    # fig, ax = plt.subplots()
-    # ax.set(xscale='linear', xlabel='Time (h)', ylabel='Mean particle radius (m)', title=f'Mean particle radius vs. time at iteration {iteration}')
-    # # ax.set(xscale='linear', xlabel='Time (h)', ylabel='Mean particle radius (m)', title=f'Mean particle radius vs. time')
-    # ax.scatter(time[1:], MeanParticleRadius_t, color = 'blue', s=5)
-    # ax.legend(['Mean particle radius'])  
-    # path = os.path.join('D:/PhD/Implementation/AI', f'MPR @{iteration+1}.png')
-    # plt.savefig(path)
-    # plt.show()
-
-    ### total volume fraction
-    # fig, ax = plt.subplots()
-    # # ax.set(xscale='linear', xlabel='Time (h)', ylabel='Total volume fraction')
-    # ax.set(xscale='linear', xlabel='Time (h)', ylabel='Total volume fraction', title=f'Total volume fraction vs. time at iteration {iteration}')
-    # ax.scatter(time[1:], TotalVolFraction_t, color = 'blue', s=5)
-    # ax.legend(['Total volume fraction'], loc='lower right')  
-    # ax.set_ylim([0,0.008])
-    # path = os.path.join('./plots', f'TVF @{iteration}.png')
-    # plt.savefig(path)
-    # plt.show()
  
 
     if(iteration % 10 == 0):
 
-        # nse_percent = nse_score(Yield_t, Yield_interpolated)
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 5))
 
-        fig, ax = plt.subplots()
-        ax.set(xscale='linear', xlabel='Time (h)', ylabel='Yield strength (MPa)')
-        ax.scatter(time[1:], Yield_t, color = 'blue', s=5) 
-        ax.scatter(time[1:], Yield_interpolated, color = 'grey', s=5)
-        ax.scatter(x, y, color = 'red', s=30, marker = 'x')
-        ax.legend(['Predicted', 'Interpolated experimental', 'Experimental'])  
-        # ax.legend(['predictions', 'experimental data'], loc='lower right')
-        path = os.path.join('./plots', f'mc{mc_run}_YS @{iteration}_{optimizer}.png')
-        plt.savefig(path)
-    
-        # ys_excel_path = os.path.join('./plots', f'mc{mc_run}_YS_{optimizer}.xlsx')
-        # if os.path.exists(ys_excel_path):
-        #     df = pd.read_excel(ys_excel_path)
-        # else:
-        #     # Ensure all arrays have same length by using time[1:] as reference
-        #     n = len(time[1:])
-        #     # Pad or truncate arrays to match length
-        #     y_padded = y + [None]*(n - len(y)) if len(y) < n else y[:n]
-        #     df = pd.DataFrame({
-        #         'Time (h)': time[1:],
-        #         'Interpolated YS (MPa)': 1000*Yield_interpolated[:n],
-        #         'Experimental YS (MPa)': y_padded
-        #     })
-        # df[f'YS_iteration_{iteration} (MPa)'] = Yield_t[:len(time[1:])]
-        # os.makedirs(os.path.dirname(ys_excel_path), exist_ok=True)
-        # df.to_excel(ys_excel_path, index=False)
+        ax1.set(xscale='linear', xlabel='Time (h)', ylabel='Yield strength (MPa)')
+        ax1.scatter(time[1:], Yield_t, color='blue', s=5)
+        ax1.scatter(time[1:], Yield_interpolated, color='grey', s=5)
+        ax1.scatter(x, y, color='red', s=30, marker='x')
+        ax1.legend(['Predicted', 'Interpolated experimental', 'Experimental'])
 
-    # fig, ax = plt.subplots()
-    # ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss', title=f'MSE at iteration {iteration}')
-    # ax.plot(loss_t, color = 'blue')
-    # ax.legend(['loss'])  
-    # path = os.path.join('./plots', f'loss.png')
-    # plt.savefig(path)
-    
-        # if os.path.exists(excel_path):
-        #     df = pd.read_excel(excel_path)
-        # else:
-        #     # Create new DataFrame with time and Yield_interpolated
-        #     df = pd.DataFrame({ 'time (h)': time[1:], 'YS_interpolated (MPa)': 1000*Yield_interpolated.numpy()})
-        # df[f'Y_i{iteration}'] = Yield_t
-        # df.to_excel(excel_path, index=False)
+        ax2.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss')
+        ax2.plot(loss_t, color='blue')
+        ax2.legend(['loss'])
 
+        ax3.set(xscale='linear', xlabel='Iterations (#)', ylabel='Parameters')
+        ax3.plot(param1_t)
+        ax3.plot(param2_t)
+        ax3.plot(param3_t)
+        ax3.plot(param4_t)
+        ax3.plot(param5_t)
+        ax3.legend(['$P_1$', '$P_2$', '$P_3$', '$P_4$', '$P_5$'])
 
-
-    if(iteration % 10 == 0):
-        fig, ax = plt.subplots()
-        ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss')
-        ax.plot(loss_t, color = 'blue')
-        ax.legend(['loss'])
-        path = os.path.join('./plots', f'mc{mc_run}_loss_{optimizer}@{iteration}.png')
         plt.tight_layout()
+        path = os.path.join('./plots', f'mc{mc_run}_combined_{optimizer}@{iteration}.png')
         plt.savefig(path)
-        # plt.show()
 
         loss_excel_path = os.path.join('./plots', f'mc{mc_run}_loss_{optimizer}.xlsx')
-        loss_data = {'Iteration': list(range(len(loss_t))), 'loss': loss_t,}
+        loss_data = {'Iteration': list(range(len(loss_t))), 'loss': loss_t}
         df_loss = pd.DataFrame(loss_data)
         os.makedirs(os.path.dirname(loss_excel_path), exist_ok=True)
         df_loss.to_excel(loss_excel_path, index=False)
 
-    if(iteration % 10 == 0):
-        fig, ax = plt.subplots()
-        ax.set(xscale='linear', xlabel='Iterations (#)', ylabel='Parameter')
-        ax.set_xlabel('Iterations (#)')
-        ax.set_ylabel('Parameters')
-        ax.plot(param1_t)
-        ax.plot(param2_t)
-        ax.plot(param3_t)
-        ax.plot(param4_t)
-        ax.plot(param5_t)
-        ax.legend(['$P_1$', '$P_2$', '$P_3$', '$P_4$', '$P_5$']) 
-        path = os.path.join('./plots', f'mc{mc_run}_param_{optimizer}@{iteration}.png')
-        plt.tight_layout()
-        plt.savefig(path)
-        # plt.show()
-
         param_excel_path = os.path.join('./plots', f'mc{mc_run}_parameters.xlsx')
         param_data = {
             'Iteration': list(range(len(param1_t))),
-            'P1': param1_t,
-            'P2': param2_t,
-            'P3': param3_t,
-            'P4': param4_t,
-            'P5': param5_t
+            'P1': param1_t, 'P2': param2_t, 'P3': param3_t, 'P4': param4_t, 'P5': param5_t
         }
         df_params = pd.DataFrame(param_data)
         os.makedirs(os.path.dirname(param_excel_path), exist_ok=True)

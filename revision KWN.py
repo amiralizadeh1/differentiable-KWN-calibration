@@ -1,6 +1,5 @@
-#maybe add p4 and p5 relation as well
-# convergence will be reached for probs 2000 for p1, p4, and p5.
-# there's an inaccuracy in param3 as it modifies an addition term.
+# amazonQ prompts: 1) store the YS values for specific iterations. 2) output the value and final parameter results in .txt
+
 
 import time
 import numpy as np
@@ -64,9 +63,9 @@ c02 = 500 #+ #[s] #(c02-Sigma) may give a negative value, which is invalid for t
 c03 = 10 #+ #[s]
 
 #modelling parameter
-# seed_value = 16
-# tf.random.set_seed(seed_value)
-N_optimizer = 2000 
+seed_value = 1
+tf.random.set_seed(seed_value)
+N_optimizer = 12000 
 dt = 1. #(h)
 LR_param1 = 0.1
 LR_param2 = 0.001
@@ -75,16 +74,14 @@ LR_param4 = 0.01
 LR_param5 = 0.1
 LR_paramrpc = 0.0000001
 LR_SGD = 0.01
-LR_Adam = 0.001
+LR_Adam = 0.0001
+lambda_l2 = 1e-4  # Adjust this factor to control the strength of regularization
+lambda_l3 = 0.1
+lambda_l4 = 0.1
+lambda_l5 = 0.1
+lambda_l6 = 0.1
 ftol_adam = 0.00000000000001 #adam: 0.001 in 15min, , 0.0001 for 18 min still no convergence, 0.00001 for good view #0.000001 40mins for best view 
 ftol_powell= 0.0001 # 0.1 for 40 mins
-
-# param1_init = tf.random.normal([], mean=1.0, stddev=0.1)
-# initial_p2 = tf.math.log(tf.random.normal([], mean=1.0, stddev=0.01))
-# param2_init = initial_p2
-# param3_init = tf.random.normal([], mean=1.0, stddev=0.1)
-# param4_init = tf.random.normal([], mean=1.0, stddev=0.1)
-# param5_init = tf.random.normal([], mean=1.0, stddev=0.1)
 
 time_steps = int(FinalTime/dt)
 time_ = np.arange(0, time_steps * dt, dt)
@@ -161,7 +158,6 @@ def DeltaGsnorm(dGvol_, Gamma_, param2_):
 
 def dNdT(Z__, Beta__, DeltaGsnorm__):
     dNdT__ = N0 * Z__ * Beta__ * e**(- DeltaGsnorm__)/(1 + DeltaGsnorm__)
-    # print(f'dNdT__:{dNdT__})
     return dNdT__
 
 def dNdT_nograd(Z__, Beta__, DeltaGsnorm__):
@@ -171,13 +167,12 @@ def dNdT_nograd(Z__, Beta__, DeltaGsnorm__):
     return dNdT__
 
 def Rp(Rs__, Gamma_, param3_):
-    Rp__ =param3_* ( Rs__ + (K*T/(pi*Delta*Gamma_)**0.5)/2. )
+    Rp__ = ( Rs__ + param3_*(K*T/(pi*Delta*Gamma_)**0.5)/2. )
     return Rp__
 
 def CalculateNucleation(KWNcounter, dNdT_, dt, Rp_, ND, PR): #after converting to Decimal, this function doesn't need to know KWNcounter
-    dt = tf.Variable(float(dt), trainable = False, dtype=np.float32)
-    ND = tf.tensor_scatter_nd_update(ND, [[KWNcounter-1]], [dNdT_*dt*3600.], name=None)
-    PR = tf.tensor_scatter_nd_update(PR, [[KWNcounter-1]], [Rp_], name=None)
+    ND = dNdT_*float(dt)*3600.
+    PR = Rp_
     return ND, PR
 
 def CalculateVelocity(radius, xm_Mg_, xm_Si_, Rs__, Gamma_, coars_coeff_, param4_, param5_):
@@ -202,14 +197,12 @@ def CalculateVelocity(radius, xm_Mg_, xm_Si_, Rs__, Gamma_, coars_coeff_, param4
     return vel_total, vel_growth, vel_coarse
 
 def CalculateGrowth(KWNcounter_, dt_, xm_Mg_, xm_Si_, Rs__, ND, PR, Gamma_, coars_coeff_, param4_, param5_):
-    
-    for i in range(1): 
-        vel_total, vel_growth, vel_coarse = CalculateVelocity(PR[i], xm_Mg_, xm_Si_, Rs__, Gamma_, coars_coeff_, param4_, param5_)
-        rad_growth = PR[i] + vel_growth*dt_*3600. #the radius that is only resultant from growth (not coarsening)
-        rad_total = PR[i] + vel_total*dt_*3600.
+    vel_total, vel_growth, vel_coarse = CalculateVelocity(PR, xm_Mg_, xm_Si_, Rs__, Gamma_, coars_coeff_, param4_, param5_)
+    rad_growth = PR + vel_growth*dt_*3600. #the radius that is only resultant from growth (not coarsening)
+    rad_total = PR + vel_total*dt_*3600.
 
-        PR = tf.tensor_scatter_nd_update(PR, [[i]], [rad_total])
-        ND = tf.tensor_scatter_nd_update(ND, [[i]], [ND[i]*(rad_growth/rad_total)**3.]) 
+    PR = rad_total
+    ND = ND*(rad_growth/rad_total)**3.
 
     return ND, PR
 
@@ -217,13 +210,12 @@ def Update(KWNcounter, xm_Mg0_, xm_Si0_, ND, PR, VF, TVF_t, TND_t, MPR_t):
     TVF = 0.
     TND = 0.
     MPR = 0.
-    for i in range(1):
 
-        VF = tf.tensor_scatter_nd_update(VF, [[i]], [(2.*Delta-2./3.)*pi*PR[i]**3.*ND[i]]) 
+    VF = (2.*Delta-2./3.)*pi*PR**3.*ND
 
-        TVF = TVF + (2.*Delta-2./3.)*pi*PR[i]**3.*ND[i] 
-        TND = TND + ND[i] 
-        MPR = MPR + ND[i]*PR[i] 
+    TVF = TVF + (2.*Delta-2./3.)*pi*PR**3.*ND
+    TND = TND + ND
+    MPR = MPR + ND*PR
     
     TND_t = tf.tensor_scatter_nd_update(TND_t, [[KWNcounter-1]], [TND])
     MPR_t = tf.tensor_scatter_nd_update(MPR_t, [[KWNcounter-1]], [MPR/(TND+1.)])
@@ -243,16 +235,15 @@ def Strength(KWNcounter, ND, PR, rpc_, xm_Mg, xm_Si, Mppt, Yield_t_, Tau_c_t, Si
     TND_weak = 1. #formerly summation_n #to avoid float devision, set to 1. #SM
     summation_nf = 0. #SM
 
-    for i in range(1):
-        #SM
-        if (PR[i] > rpc_): # strong particles
-            summation_nlp_2 = summation_nlp_2 + 2.*Delta*PR[i]*ND[i]
+    #SM
+    if (PR > rpc_): # strong particles
+        summation_nlp_2 = summation_nlp_2 + 2.*Delta*PR*ND
 
-        else: # weak particles
-            Fk = Fk_coeff_1*PR[i]/rpc_ #(N)
-            summation_nlp_1 = summation_nlp_1 + ND[i]*2.*Delta*PR[i]
-            TND_weak = TND_weak + ND[i]
-            summation_nf = summation_nf + ND[i]*2.*DELTA_DIS*Gmod*(b_dis**2.)*PR[i]/rpc_
+    else: # weak particles
+        Fk = Fk_coeff_1*PR/rpc_ #(N)
+        summation_nlp_1 = summation_nlp_1 + ND*2.*Delta*PR
+        TND_weak = TND_weak + ND
+        summation_nf = summation_nf + ND*2.*DELTA_DIS*Gmod*(b_dis**2.)*PR/rpc_
 
     
     #SM
@@ -274,31 +265,46 @@ def loss_function(var1, var2):
     return tf.reduce_mean(tf.abs(var1 - var2))
 
 
-
-
-
-
-
-
-
 ############################################       ADAM   ####################
 
 opt = tf.keras.optimizers.Adam(learning_rate=LR_Adam)
 loss_t = []
 loss_basic_t = []
+
+ND = tf.Variable(0., trainable=False)
+PR = tf.Variable(0., trainable=False)
+VF = tf.Variable(0., trainable=False)
+TVF_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
+Sigma_ppt_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False, dtype=np.float32)
+MPR_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
+TND_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
+Yield_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False) # because the 0th time step doesn't have any associated YS prediction
+Tau_c_t = tf.Variable(tf.zeros([time_steps-1, 2]), trainable=False, dtype=tf.float32) #weak and strong
+
 def physics_adam():
+    global ND, PR, VF, TVF_t, Sigma_ppt_t, MPR_t, TND_t, Yield_t, Tau_c_t
 
     rpc = paramrpc* 1.4e-9 #3. (nm) [s] #2.4e-9 (m) [1] 5e-9 [4]
 
-    ND = tf.Variable(tf.zeros([time_steps]), trainable=False)
-    PR = tf.Variable(tf.zeros([time_steps]), trainable=False)
-    VF = tf.Variable(tf.zeros([time_steps]), trainable=False)
-    TVF_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
-    Sigma_ppt_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False, dtype=np.float32)
-    MPR_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
-    TND_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
-    Yield_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False) # because the 0th time step doesn't have any associated YS prediction
-    Tau_c_t = tf.Variable(tf.zeros([time_steps-1, 2]), trainable=False, dtype=tf.float32) #weak and strong
+    ND.assign(0.)
+    PR.assign(0.)
+    VF.assign(0.)
+    TVF_t.assign(tf.zeros([time_steps-1]))
+    Sigma_ppt_t.assign(tf.zeros([time_steps-1]))
+    MPR_t.assign(tf.zeros([time_steps-1]))
+    TND_t.assign(tf.zeros([time_steps-1]))
+    Yield_t.assign(tf.zeros([time_steps-1]))
+    Tau_c_t.assign(tf.zeros([time_steps-1, 2]))
+
+    nd = tf.identity(ND)
+    pr = tf.identity(PR)
+    vf = tf.identity(VF)
+    tvf_t = tf.identity(TVF_t)
+    sigma_ppt_t = tf.identity(Sigma_ppt_t)
+    mpr_t = tf.identity(MPR_t)
+    tnd_t = tf.identity(TND_t)
+    yield_t = tf.identity(Yield_t)
+    tau_c_t = tf.identity(Tau_c_t)
 
     Gamma =  0.039
     Mppt = 1.0   #[1] 3.1
@@ -317,7 +323,6 @@ def physics_adam():
     xm_Si = xm_Si0
     xm_Al = xm_Al0
     
-    # print(f'CalculateNucleation:')
     dGvol_ = dGvol(xm_Mg, xm_Si)
     Z_ = Z()
     Beta_ = Beta()
@@ -326,31 +331,18 @@ def physics_adam():
     Rp_ = Rp(Rs_, Gamma, param3)
     dNdT_ = dNdT(Z_, Beta_, DeltaGsnorm_)
     KWNcounter = 1
-    ND, PR = CalculateNucleation(KWNcounter, dNdT_, dt, Rp_, ND, PR)
-
-    print(f'Delivered by CalculateNucleation:')
-    print(f'param2_exp: {tf.exp(param2)}')
-    print(f'dGvol_: {dGvol_}')
-    print(f'Rs_: {Rs_}')
-    print(f'DeltaGsnorm_: {DeltaGsnorm_}')
-    print(f'Rp_: {Rp_}')
-    print(f'dNdT_: {dNdT_}')
-    print(f'ND: {ND}')
-    print(f'PR: {PR}')
-    print()
+    nd, pr = CalculateNucleation(KWNcounter, dNdT_, dt, Rp_, nd, pr)
 
 
     for KWNcounter in range(1, time_steps):
         
         t = time_[KWNcounter]
-        
-        # print(f'==============================counter: {KWNcounter}======time: {t}==========')
 
-        ND, PR = CalculateGrowth(KWNcounter, dt, xm_Mg, xm_Si, Rs_, ND, PR, Gamma, coars_coeff, param4, param5)
+        nd, pr = CalculateGrowth(KWNcounter, dt, xm_Mg, xm_Si, Rs_, nd, pr, Gamma, coars_coeff, param4, param5)
 
-        # xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t,  MPR_t, Yield_t, Tau_c_t, Sigma_ppt_t, TND, MPR, TVF = CalculateVF(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, Yield_t, TVF_t, TND_t, MPR_t, Mppt, Tau_c_t, Sigma_ppt_t, rpc)
-        xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t, MPR_t = Update(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, TVF_t, TND_t, MPR_t)
-        Yield_t = Strength(KWNcounter, ND, PR, rpc, xm_Mg, xm_Si, Mppt, Yield_t, Tau_c_t, Sigma_ppt_t)
+        # xm_Mg, xm_Si, nd, pr, vf, tvf_t, tnd_t, mpr_t, yield_t, tau_c_t, sigma_ppt_t = CalculateVF(...)
+        xm_Mg, xm_Si, nd, pr, vf, tvf_t, tnd_t, mpr_t = Update(KWNcounter, xm_Mg0, xm_Si0, nd, pr, vf, tvf_t, tnd_t, mpr_t)
+        yield_t = Strength(KWNcounter, nd, pr, rpc, xm_Mg, xm_Si, Mppt, yield_t, tau_c_t, sigma_ppt_t)
 
         # print(f'KWNcounter: {KWNcounter} Time: {t} hours')
         # print('ND', ND.numpy())
@@ -363,10 +355,7 @@ def physics_adam():
         # print(f'Yield_t: {Yield_t}')
         # print()
 
-    lambda_l2 = 1e-4  # Adjust this factor to control the strength of regularization
-    lambda_l3 = 1.
-    lambda_l4 = 1.
-    lambda_l5 = 1.
+
 
     loss_unity = (
         tf.nn.l2_loss(param1- 1.0) +
@@ -380,23 +369,24 @@ def physics_adam():
     loss_p1p3 = tf.nn.l2_loss(param1 * param3**2 - 1.)
     loss_p1p2 = tf.nn.l2_loss((e**param2)**3 - param1)
     loss_p1p5 = tf.nn.l2_loss(param1- param5)
-    #maybe add p4 and p5 relation as well
+    loss_p4p5 = tf.nn.l2_loss(param4- param5)
+    loss_p3p4 = tf.nn.l2_loss(param4 * param3**2 - 1.)
+    loss_p3p5 = tf.nn.l2_loss(param5 * param3**2 - 1.)
 
 
-    basic_loss = loss_function(Yield_t, Yield_interpolated)
+    basic_loss = loss_function(yield_t, Yield_interpolated)
 
     # loss_ = basic_loss
-    loss_ = basic_loss + lambda_l2 * loss_unity + lambda_l3 * loss_p1p4 + lambda_l4 * loss_p1p2 + lambda_l5 * loss_p1p5
+    loss_ = basic_loss + lambda_l2 * loss_unity + lambda_l3 * ( loss_p1p4 +  loss_p1p3 +  loss_p1p2 +  loss_p1p5 + loss_p4p5 +  loss_p3p4 + loss_p3p5 )
     
-    error_percentage = tf.reduce_mean(tf.abs((Yield_t - Yield_interpolated) / Yield_interpolated)) * 100
+    error_percentage = tf.reduce_mean(tf.abs((yield_t - Yield_interpolated) / Yield_interpolated)) * 100
     
     loss_t.append(loss_.numpy())
     loss_basic_t.append(basic_loss.numpy())
 
-    visual(time_, TND_t, MPR_t, TVF_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, ii, optimizer='adam', loss_basic_t = loss_basic_t, mc_run = mc_run)
+    visual(time_, tnd_t, mpr_t, tvf_t, yield_t, loss_t, Yield_interpolated, x, y, N_optimizer, param1_t, param2_t, param3_t, param4_t, param5_t, ii, optimizer='adam', loss_basic_t = loss_basic_t, mc_run = mc_run)
     print(f'adam iteration {ii} finished. loss {loss_} e% {error_percentage}')
 
-    print('\n')
     return loss_
 
 
@@ -469,15 +459,6 @@ for mc_run in range(1, 2):  # Seeds 1 to 10
         param5_t.append(param5.numpy())
         paramrpc_t.append(paramrpc.numpy())
         
-        # if ii > 0:
-        #     current_loss = loss_t[-1]
-        #     previous_loss = loss_t[-2]
-        #     loss_diff = abs(current_loss - previous_loss)
-        #     tolerance = ftol_adam * max(abs(current_loss), abs(previous_loss), 1.0)
-        #     print(f"At iteration {ii}: loss_diff={loss_diff:.6f} , tolerance={tolerance:.6f}")
-        #     if loss_diff <= tolerance:
-        #         print(f"ADAM Convergence reached.")
-        #         break
     
     toc = time.time()
     adam_time = (toc-tic)/60.
@@ -493,409 +474,31 @@ for mc_run in range(1, 2):  # Seeds 1 to 10
     }
     print(f"MC run {mc_run} , execution time {adam_time:.2f}: {param1_t[-1]}, {param2_t[-1]}, {param3_t[-1]}, {param4_t[-1]}, {param5_t[-1]}")
 
-# #modelling parameter
-# N_optimizer_gd = 10
-# loss_t = []
-# nan_count = 0
-
-# def physics_powell():
-
-#     if not hasattr(physics_powell, 'counter'):
-#         physics_powell.counter = 0
-
-#     rpc = paramrpc* 1.4e-9 #3. (nm) [s] #2.4e-9 (m) [1] 5e-9 [4]
-
-#     ND = tf.Variable(tf.zeros([time_steps]), trainable=False)
-#     PR = tf.Variable(tf.zeros([time_steps]), trainable=False)
-#     VF = tf.Variable(tf.zeros([time_steps]), trainable=False)
-#     TVF_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
-#     Sigma_ppt_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False, dtype=np.float32)
-#     MPR_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
-#     TND_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
-#     Yield_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False) # because the 0th time step doesn't have any associated YS prediction
-#     Tau_c_t = tf.Variable(tf.zeros([time_steps-1, 2]), trainable=False, dtype=tf.float32) #weak and strong
-
-#     Gamma =  0.039
-#     Mppt = 1.0   #[1] 3.1
-#     coars_coeff = 2.5e-3 #1e-3 #the smaller, the later the peak
-
-#     wtp_Mg = 0.5
-#     wtp_Si = 0.43
-#     mw_Mg = 24.305  #(g/mol)
-#     mw_Si = 28.09   #(g/mol)
-#     mw_Al = 26.98   #(g/mol)
-#     xm_denom = wtp_Mg/mw_Mg + wtp_Si/mw_Si + (100.-wtp_Mg-wtp_Si)/mw_Al
-#     xm_Mg0 = wtp_Mg/mw_Mg/xm_denom
-#     xm_Si0 = wtp_Si/mw_Si/xm_denom
-#     xm_Al0 = (100.-wtp_Mg-wtp_Si)/mw_Al/xm_denom
-#     xm_Mg = xm_Mg0
-#     xm_Si = xm_Si0
-#     xm_Al = xm_Al0
-    
-#     # print(f'CalculateNucleation:')
-#     dGvol_ = dGvol(xm_Mg, xm_Si)
-#     Z_ = Z()
-#     Beta_ = Beta()
-#     Rs_ = Rs(dGvol_, Gamma, param1)
-#     DeltaGsnorm_ = DeltaGsnorm(dGvol_, Gamma)
-#     Rp_ = Rp(Rs_, Gamma, param3)
-#     dNdT_ = dNdT_nograd(Z_, Beta_, DeltaGsnorm_, param2)
-#     KWNcounter = 1
-#     ND, PR = CalculateNucleation(KWNcounter, dNdT_, dt, Rp_, ND, PR)
-
-#     # print("parameters:")
-#     # print("param1:", param1_t[-1])
-#     # print("param2:", param2_t[-1]) 
-#     # print("param3:", param3_t[-1])
-#     # print("param4:", param4_t[-1])
-#     # print("param5:", param5_t[-1])
-
-
-#     for KWNcounter in range(1, time_steps):
-        
-#         t = time_[KWNcounter]
-        
-#         # print(f'==============================counter: {KWNcounter}======time: {t}==========')
-
-#         ND, PR = CalculateGrowth(KWNcounter, dt, xm_Mg, xm_Si, Rs_, ND, PR, Gamma, coars_coeff, param4, param5)
-
-#         # xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t,  MPR_t, Yield_t, Tau_c_t, Sigma_ppt_t, TND, MPR, TVF = CalculateVF(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, Yield_t, TVF_t, TND_t, MPR_t, Mppt, Tau_c_t, Sigma_ppt_t, rpc)
-#         xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t, MPR_t = Update(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, TVF_t, TND_t, MPR_t)
-#         Yield_t = Strength(KWNcounter, ND, PR, rpc, xm_Mg, xm_Si, Mppt, Yield_t, Tau_c_t, Sigma_ppt_t)
-
-#     lambda_l2 = 1e-4 # 1e-6  # Adjust this factor to control the strength of regularization
-#     lambda_l3 = 1e-4
-#     l2_reg = (
-#         tf.nn.l2_loss(param1- 1.0) +
-#         tf.nn.l2_loss(param2) +
-#         tf.nn.l2_loss(param3- 1.0) +
-#         tf.nn.l2_loss(param4- 1.0) +
-#         tf.nn.l2_loss(param5- 1.0)
-#     )
-
-#     loss_ = loss_function(Yield_t, Yield_interpolated) + lambda_l2 * l2_reg + lambda_l3 * tf.nn.l2_loss(param1- param4)**2.
-    
-#     # Count NaN values
-#     global nan_count
-#     if tf.math.is_nan(loss_):
-#         nan_count += 1
-    
-#     loss_t.append(loss_.numpy())
-
-#     # Store history
-#     param1_t.append(param1.numpy())
-#     param2_t.append(param2.numpy())
-#     param3_t.append(param3.numpy())
-#     param4_t.append(param4.numpy())
-#     param5_t.append(param5.numpy())
-#     paramrpc_t.append(paramrpc.numpy())
-    
-#     print(f"powell physics_counter {physics_powell.counter} with loss value {loss_} ")
-#     print()
-
-#     visual(time_, TND_t, MPR_t, TVF_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer_gd, param1_t, param2_t, param3_t, param4_t, param5_t, physics_powell.counter, optimizer='powell')
-#     physics_powell.counter += 1
-#     return loss_
-
-# paramrpc = tf.Variable(0.85, trainable = False, dtype=np.float32) 
-# param1 = tf.Variable(param1_init, trainable = True, dtype=np.float32)
-# param2 = tf.Variable(tf.exp(param2_init), trainable = True, dtype=np.float32)
-# param3 = tf.Variable(param3_init, trainable = True, dtype=np.float32)
-# param4 = tf.Variable(param4_init, trainable = True, dtype=np.float32)
-# param5 = tf.Variable(param5_init, trainable = True, dtype=np.float32)
-
-# param1_t = []
-# param2_t = []
-# param3_t = []
-# param4_t = []
-# param5_t = []
-# paramrpc_t = []
-
-# param1_t.append(param1.numpy())
-# param2_t.append(param2.numpy())
-# param3_t.append(param3.numpy())
-# param4_t.append(param4.numpy())
-# param5_t.append(param5.numpy())
-# paramrpc_t.append(paramrpc.numpy())
-
-# tic = time.time()
-
-# def objective_function(params):
-#     # Unpack parameters
-#     param1.assign(params[0])
-#     param2.assign(params[1]) 
-#     param3.assign(params[2])
-#     param4.assign(params[3])
-#     param5.assign(params[4])
-    
-#     loss_value = physics_powell()
-#     return loss_value.numpy()
-
-# # Initial parameter values
-# initial_params = [param1.numpy(), param2.numpy(), param3.numpy(), param4.numpy(), param5.numpy()]
-
-# # Create bounds for each parameter separately
-# bounds = [
-#     (0.0, 3.0),     # param1 bounds
-#     (0.0, 3.0),     # param2 bounds 
-#     (0.0, 3.0),     # param3 bounds
-#     (0.0, 3.0),     # param4 bounds
-#     (0.0, 3.0)      # param5 bounds
-# ]
-# # Set flag to track main optimization calls
-# objective_function.is_main_call = True
-
-# # Custom callback to track iterations
-# def callback(xk):
-#     objective_function.is_main_call = True
-#     return False
-
-# # Add iteration counter
-# minimize_count = 0
-
-# def callback(xk):
-#     global minimize_count
-#     minimize_count += 1
-#     print(f"minimize_count {minimize_count} of {N_optimizer_gd}")
-#     objective_function.is_main_call = True
-#     return False
-
-# result = minimize(objective_function, initial_params, method='Powell',
-#                  bounds=bounds,
-#                  callback=callback, 
-#                  options={'maxiter': N_optimizer_gd,  # default: None
-#                          'disp': True,            # default: False
-#                          'ftol': ftol_powell,           # default: 1e-4, Function tolerance - smaller value for more precision
-#                          'xtol': 1e-12,           # default: 1e-4, Parameter tolerance
-#                          'maxfev': 10000,        # default: None, Maximum function evaluations
-#                          'return_all': True       # default: False, Return optimization path
-#                          })
-
-# print("Parameters: ", result.x)
-
-# print("Number of iterations for powell: ", result.nit)
-
-# toc = time.time()
-# powell_time = (toc-tic)/60.
-# powell_iterations = result.nit
-# print(f'execution time of Powell is {powell_time} mins')
-
-# results_dir = './results'
-# os.makedirs(results_dir, exist_ok=True)
-
-# # with open(os.path.join(results_dir, f'results_seed_{seed_value}.txt'), 'w') as f:
-# #     f.write(f"Random Seed: {seed_value}\n")
-# #     f.write(f"ADAM - Execution Time: {adam_time:.2f} mins, Function Evaluations: {adam_iterations}\n")
-# #     f.write(f"ADAM Final Parameters: param1={adam_final_params['param1']:.6f}, param2={np.exp(adam_final_params['param2']):.6f}, param3={adam_final_params['param3']:.6f}, param4={adam_final_params['param4']:.6f}, param5={adam_final_params['param5']:.6f}\n")
-# #     f.write(f"Powell - Execution Time: {powell_time:.2f} mins, Function Evaluations: {physics_powell.counter}, Iterations: {result.nit}, NaN Count: {nan_count}\n")
-# #     f.write(f"Powell Final Parameters: param1={result.x[0]:.6f}, param2={result.x[1]:.6f}, param3={result.x[2]:.6f}, param4={result.x[3]:.6f}, param5={result.x[4]:.6f}\n")
-
-
-
-
-
-# # #===========================================    Nelder-Mead  ========================================
-
-# #modelling parameter
-# N_optimizer_nm = 1000
-# loss_t = []
-# nan_count = 0
-
-# def physics_nm():
-
-#     if not hasattr(physics_nm, 'counter'):
-#         physics_nm.counter = 0
-
-#     rpc = paramrpc* 1.4e-9 #3. (nm) [s] #2.4e-9 (m) [1] 5e-9 [4]
-
-#     ND = tf.Variable(tf.zeros([time_steps]), trainable=False)
-#     PR = tf.Variable(tf.zeros([time_steps]), trainable=False)
-#     VF = tf.Variable(tf.zeros([time_steps]), trainable=False)
-#     TVF_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
-#     Sigma_ppt_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False, dtype=np.float32)
-#     MPR_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
-#     TND_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False)
-#     Yield_t = tf.Variable(tf.zeros([time_steps-1]), trainable=False) # because the 0th time step doesn't have any associated YS prediction
-#     Tau_c_t = tf.Variable(tf.zeros([time_steps-1, 2]), trainable=False, dtype=tf.float32) #weak and strong
-
-#     Gamma =  0.039
-#     Mppt = 1.0   #[1] 3.1
-#     coars_coeff = 2.5e-3 #1e-3 #the smaller, the later the peak
-
-#     wtp_Mg = 0.5
-#     wtp_Si = 0.43
-#     mw_Mg = 24.305  #(g/mol)
-#     mw_Si = 28.09   #(g/mol)
-#     mw_Al = 26.98   #(g/mol)
-#     xm_denom = wtp_Mg/mw_Mg + wtp_Si/mw_Si + (100.-wtp_Mg-wtp_Si)/mw_Al
-#     xm_Mg0 = wtp_Mg/mw_Mg/xm_denom
-#     xm_Si0 = wtp_Si/mw_Si/xm_denom
-#     xm_Al0 = (100.-wtp_Mg-wtp_Si)/mw_Al/xm_denom
-#     xm_Mg = xm_Mg0
-#     xm_Si = xm_Si0
-#     xm_Al = xm_Al0
-    
-#     # print(f'CalculateNucleation:')
-#     dGvol_ = dGvol(xm_Mg, xm_Si)
-#     Z_ = Z()
-#     Beta_ = Beta()
-#     Rs_ = Rs(dGvol_, Gamma, param1)
-#     DeltaGsnorm_ = DeltaGsnorm(dGvol_, Gamma)
-#     Rp_ = Rp(Rs_, Gamma, param3)
-#     dNdT_ = dNdT_nograd(Z_, Beta_, DeltaGsnorm_, param2)
-#     KWNcounter = 1
-#     ND, PR = CalculateNucleation(KWNcounter, dNdT_, dt, Rp_, ND, PR)
-
-#     for KWNcounter in range(1, time_steps):
-        
-#         t = time_[KWNcounter]
-        
-#         # print(f'==============================counter: {KWNcounter}======time: {t}==========')
-
-#         ND, PR = CalculateGrowth(KWNcounter, dt, xm_Mg, xm_Si, Rs_, ND, PR, Gamma, coars_coeff, param4, param5)
-
-#         # xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t,  MPR_t, Yield_t, Tau_c_t, Sigma_ppt_t, TND, MPR, TVF = CalculateVF(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, Yield_t, TVF_t, TND_t, MPR_t, Mppt, Tau_c_t, Sigma_ppt_t, rpc)
-#         xm_Mg, xm_Si, ND, PR, VF, TVF_t, TND_t, MPR_t = Update(KWNcounter, xm_Mg0, xm_Si0, ND, PR, VF, TVF_t, TND_t, MPR_t)
-#         Yield_t = Strength(KWNcounter, ND, PR, rpc, xm_Mg, xm_Si, Mppt, Yield_t, Tau_c_t, Sigma_ppt_t)
-
-#     lambda_l2 = 1e-4 # 1e-6  # Adjust this factor to control the strength of regularization
-#     l2_reg = (
-#         tf.nn.l2_loss(param1- 1.0) +
-#         tf.nn.l2_loss(param2) +
-#         tf.nn.l2_loss(param3- 1.0) +
-#         tf.nn.l2_loss(param4- 1.0) +
-#         tf.nn.l2_loss(param5- 1.0)
-#     )
-
-#     # loss_ = loss_function(Yield_t, Yield_interpolated) + lambda_l2 * l2_reg
-#     loss_ = loss_function(Yield_t, Yield_interpolated) 
-    
-#     # Count NaN values
-#     global nan_count
-#     if tf.math.is_nan(loss_):
-#         nan_count += 1
-    
-#     loss_t.append(loss_.numpy())
-
-#     # Store history
-#     param1_t.append(param1.numpy())
-#     param2_t.append(param2.numpy())
-#     param3_t.append(param3.numpy())
-#     param4_t.append(param4.numpy())
-#     param5_t.append(param5.numpy())
-#     paramrpc_t.append(paramrpc.numpy())
-    
-#     print(f"NM physics_counter {physics_nm.counter} with loss value {loss_} ")
-#     print()
-
-#     visual(time_, TND_t, MPR_t, TVF_t, Yield_t, loss_t, Yield_interpolated, x, y, N_optimizer_nm, param1_t, param2_t, param3_t, param4_t, param5_t, physics_nm.counter, optimizer='nm')
-#     physics_nm.counter += 1
-#     return loss_
-
-# paramrpc = tf.Variable(0.85, trainable = False, dtype=np.float32) 
-# param1 = tf.Variable(param1_init, trainable = True, dtype=np.float32)
-# param2 = tf.Variable(tf.exp(param2_init), trainable = True, dtype=np.float32)
-# param3 = tf.Variable(param3_init, trainable = True, dtype=np.float32)
-# param4 = tf.Variable(param4_init, trainable = True, dtype=np.float32)
-# param5 = tf.Variable(param5_init, trainable = True, dtype=np.float32)
-
-# param1_t = []
-# param2_t = []
-# param3_t = []
-# param4_t = []
-# param5_t = []
-# paramrpc_t = []
-
-# param1_t.append(param1.numpy())
-# param2_t.append(param2.numpy())
-# param3_t.append(param3.numpy())
-# param4_t.append(param4.numpy())
-# param5_t.append(param5.numpy())
-# paramrpc_t.append(paramrpc.numpy())
-
-# tic = time.time()
-
-# def objective_function(params):
-#     # Unpack parameters
-#     param1.assign(params[0])
-#     param2.assign(params[1]) 
-#     param3.assign(params[2])
-#     param4.assign(params[3])
-#     param5.assign(params[4])
-    
-#     loss_value = physics_nm()
-#     return loss_value.numpy()
-
-# # Initial parameter values
-# initial_params = [param1.numpy(), param2.numpy(), param3.numpy(), param4.numpy(), param5.numpy()]
-
-# # Create initial simplex with X% offsets
-# n_params = len(initial_params)
-# initial_simplex = np.zeros((n_params + 1, n_params))
-# initial_simplex[0] = initial_params  # First vertex is the initial point
-
-# for i in range(n_params):
-#     initial_simplex[i + 1] = initial_params.copy()
-#     initial_simplex[i + 1][i] = initial_params[i] * 1.9
-
-# # Create bounds for each parameter separately
-# bounds = [
-#     (0.0, 3.0),     # param1 bounds
-#     (0.0, 3.0),     # param2 bounds 
-#     (0.0, 3.0),     # param3 bounds
-#     (0.0, 3.0),     # param4 bounds
-#     (0.0, 3.0)      # param5 bounds
-# ]
-# # Set flag to track main optimization calls
-# objective_function.is_main_call = True
-
-# # Custom callback to track iterations
-# def callback(xk):
-#     objective_function.is_main_call = True
-#     return False
-
-# # Add iteration counter
-# minimize_count = 0
-
-# def callback(xk):
-#     global minimize_count
-#     minimize_count += 1
-#     print(f"minimize_count {minimize_count} of {N_optimizer_nm}")
-#     objective_function.is_main_call = True
-#     return False
-
-# result = minimize(objective_function, initial_params, method='Nelder-Mead',
-#                 #  bounds= [],
-#                  callback=callback, 
-#                 options={
-#                 "xatol": 1e-10,          # default absolute tolerance in x
-#                 "fatol": 1e-4,          # default absolute tolerance in f(x)
-#                 "maxiter": N_optimizer_nm,        #
-#                 "maxfev": None,         # defaults internally to 200 * len(x0)
-#                 "disp": False,          # no messages
-#                 "return_all": False,    # don’t store history
-#                 "initial_simplex": initial_simplex # custom simplex with x% offsets
-#                          })
-
-# print("Parameters: ", result.x)
-
-# print("Number of iterations for NM: ", result.nit)
-
-
-# toc = time.time()
-# nm_time = (toc-tic)/60.
-# nm_iterations = result.nit
-# print(f'execution time of NM is {nm_time} mins')
-# print(f'Nelder-Mead optimization message: {result.message}')
-
-# results_dir = './results'
-# os.makedirs(results_dir, exist_ok=True)
-
-# with open(os.path.join(results_dir, f'results_seed_{seed_value}.txt'), 'w') as f:
-#     f.write(f"Random Seed: {seed_value}\n")
-#     # f.write(f"ADAM - Execution Time: {adam_time:.2f} mins, Function Evaluations: {adam_iterations}\n")
-#     # f.write(f"ADAM Final Parameters: param1={adam_final_params['param1']:.6f}, param2={np.exp(adam_final_params['param2']):.6f}, param3={adam_final_params['param3']:.6f}, param4={adam_final_params['param4']:.6f}, param5={adam_final_params['param5']:.6f}\n")
-#     # f.write(f"Powell - Execution Time: {powell_time:.2f} mins, Function Evaluations: {physics_powell.counter}, Iterations: {result.nit}, NaN Count: {nan_count}\n")
-#     # f.write(f"Powell Final Parameters: param1={result.x[0]:.6f}, param2={result.x[1]:.6f}, param3={result.x[2]:.6f}, param4={result.x[3]:.6f}, param5={result.x[4]:.6f}\n")
-#     f.write(f"NM - Execution Time: {nm_time:.2f} mins, Function Evaluations: {physics_nm.counter}, Iterations: {result.nit}, NaN Count: {nan_count}\n")
-#     f.write(f"NM Final Parameters: param1={result.x[0]:.6f}, param2={result.x[1]:.6f}, param3={result.x[2]:.6f}, param4={result.x[3]:.6f}, param5={result.x[4]:.6f}\n")
+    txt_path = os.path.join(newFolder, f'results_mc{mc_run}.txt')
+    with open(txt_path, 'w') as f:
+        f.write("=== Initial Settings ===\n")
+        f.write(f"T = {T} K\n")
+        f.write(f"FinalTime = {FinalTime} h\n")
+        f.write(f"N_optimizer = {N_optimizer}\n")
+        f.write(f"dt = {dt} h\n")
+        f.write(f"LR_Adam = {LR_Adam}\n")
+        f.write(f"LR_param1 = {LR_param1}, LR_param2 = {LR_param2}, LR_param3 = {LR_param3}, LR_param4 = {LR_param4}, LR_param5 = {LR_param5}\n")
+        f.write(f"lambda_l2 = {lambda_l2}, lambda_l3 = {lambda_l3}, lambda_l4 = {lambda_l4}, lambda_l5 = {lambda_l5}, lambda_l6 = {lambda_l6}\n")
+        f.write(f"seed = {mc_run}\n")
+        f.write(f"param1_init = {param1_init.numpy():.6f}\n")
+        f.write(f"param2_init (exp) = {float(tf.exp(param2_init).numpy()):.6f}\n")
+        f.write(f"param3_init = {param3_init.numpy():.6f}\n")
+        f.write(f"param4_init = {param4_init.numpy():.6f}\n")
+        f.write(f"param5_init = {param5_init.numpy():.6f}\n")
+        f.write("\n=== Final Parameter Results ===\n")
+        f.write(f"param1 = {param1_t[-1]:.6f}\n")
+        f.write(f"param2 (exp) = {param2_t[-1]:.6f}\n")
+        f.write(f"param3 = {param3_t[-1]:.6f}\n")
+        f.write(f"param4 = {param4_t[-1]:.6f}\n")
+        f.write(f"param5 = {param5_t[-1]:.6f}\n")
+        f.write(f"paramrpc = {paramrpc_t[-1]:.6f}\n")
+        f.write(f"\nExecution time = {adam_time:.2f} min\n")
+        f.write(f"Adam iterations = {adam_iterations}\n")
+        f.write(f"Final loss = {loss_t[-1]:.8f}\n")
+        f.write(f"Final basic loss = {loss_basic_t[-1]:.8f}\n")
+    print(f"Results saved to {txt_path}")
