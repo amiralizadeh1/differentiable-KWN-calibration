@@ -1,3 +1,4 @@
+#this code runs on myhr dataset which is shown in the validation section of the thesis.
 #validation ys = (hv - 16.0) / 0.33
 
 import time

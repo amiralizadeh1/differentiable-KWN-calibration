@@ -1,5 +1,4 @@
-# amazonQ prompts: 1) store the YS values for specific iterations. 2) output the value and final parameter results in .txt
-
+# this file runs on sekhar dataset.
 
 import time
 import numpy as np
