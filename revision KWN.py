@@ -28,7 +28,7 @@ plt.rcParams.update({
     'figure.titlesize': 15 # Font size for figure title
 })
 
-newFolder = os.path.join('D:\PhD\Implementation', 'AI')
+newFolder = os.path.join('.', 'plots')
 if not os.path.exists(newFolder): os.makedirs(newFolder)
 
 #composition and process parameters
@@ -63,7 +63,7 @@ c02 = 500 #+ #[s] #(c02-Sigma) may give a negative value, which is invalid for t
 c03 = 10 #+ #[s]
 
 #modelling parameter
-seed_value = 1
+seed_value = 4
 tf.random.set_seed(seed_value)
 N_optimizer = 12000 
 dt = 1. #(h)

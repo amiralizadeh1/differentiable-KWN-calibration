@@ -66,9 +66,9 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 5))
 
         ax1.set(xscale='linear', xlabel='Time (h)', ylabel='Yield strength (MPa)')
-        ax1.scatter(time[1:], Yield_t, color='blue', s=5)
-        ax1.scatter(time[1:], Yield_interpolated, color='grey', s=5)
-        ax1.scatter(x, y, color='red', s=30, marker='x')
+        ax1.scatter(time[1:], 1000*Yield_t, color='blue', s=5)
+        ax1.scatter(time[1:], 1000*Yield_interpolated, color='grey', s=5)
+        ax1.scatter(x, 1000*y, color='red', s=30, marker='x')
         ax1.legend(['Predicted', 'Interpolated experimental', 'Experimental'])
 
         ax2.set(xscale='linear', xlabel='Iterations (#)', ylabel='Loss')
@@ -101,6 +101,9 @@ def visual(time, TotalNumberDensity_t, MeanParticleRadius_t, TotalVolFraction_t,
         df_params = pd.DataFrame(param_data)
         os.makedirs(os.path.dirname(param_excel_path), exist_ok=True)
         df_params.to_excel(param_excel_path, index=False)
+
+        ys_excel_path = os.path.join('./plots', f'mc{mc_run}_YS_predictions_{optimizer}.xlsx')
+        pd.DataFrame({'Time': time[1:], 'Yield_predicted': Yield_t, 'Yield_interpolated': Yield_interpolated}).to_excel(ys_excel_path, index=False)
 
     plt.close('all')
 

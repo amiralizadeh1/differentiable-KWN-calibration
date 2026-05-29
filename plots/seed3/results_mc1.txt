@@ -1,0 +1,27 @@
+=== Initial Settings ===
+T = 423.0 K
+FinalTime = 170.0 h
+N_optimizer = 12000
+dt = 1.0 h
+LR_Adam = 0.0001
+LR_param1 = 0.1, LR_param2 = 0.001, LR_param3 = 0.1, LR_param4 = 0.01, LR_param5 = 0.1
+lambda_l2 = 0.0001, lambda_l3 = 0.1, lambda_l4 = 0.1, lambda_l5 = 0.1, lambda_l6 = 0.1
+seed = 1
+param1_init = 0.889878
+param2_init (exp) = 1.004031
+param3_init = 0.954299
+param4_init = 1.169402
+param5_init = 1.061182
+
+=== Final Parameter Results ===
+param1 = 0.625121
+param2 (exp) = 0.834486
+param3 = 1.308520
+param4 = 0.545425
+param5 = 0.575943
+paramrpc = 0.850000
+
+Execution time = 1386.74 min
+Adam iterations = 12000
+Final loss = 0.01141022
+Final basic loss = 0.01032026
