@@ -1,5 +1,16 @@
-#this code runs on myhr dataset which is shown in the validation section of the thesis.
-#validation ys = (hv - 16.0) / 0.33
+# Validation data source
+#
+# The validation dataset used in this section was digitised from Figure 3,
+# Alloy 4, of:
+#
+# Myhr, O.R. and Grong, Ø. (2000).
+# "Modelling of the Age Hardening Behaviour of Al–Mg–Si Alloys."
+# Acta Materialia, 48(7), 1605–1615.
+# https://doi.org/10.1016/S1359-6454(99)00430-8
+#
+# The paper was used only as a source of validation data; the model
+# implementation and calibration framework in this repository are independent.
+# mapping equation between hardenss hv and yield strength y: ys = (hv - 16.0) / 0.33
 
 import time
 import numpy as np
