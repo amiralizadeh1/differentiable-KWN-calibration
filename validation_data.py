@@ -1,3 +1,61 @@
+"""
+validation_data.py
+
+Purpose
+-------
+This script prepares and visualises the experimental validation datasets used by
+the KWN validation framework.
+
+It converts the processed experimental measurements into the quantities required
+by the validation scripts, prints the processed values, and generates quick
+inspection plots of the experimental data. No modelling, optimisation, or
+interpolation is performed.
+
+Main workflow
+-------------
+1. Hardness processing
+   - Loads Hardness_processed.xlsx.
+   - Converts Vickers hardness (HV) to yield strength (YS) using:
+
+         YS = (HV - 16.0) / 0.33
+
+   - Converts experimental time from seconds to hours.
+   - Prints the processed yield-strength validation data.
+
+2. Total Number Density (TND) processing
+   - Loads TND_processed.xlsx.
+   - Converts time from seconds to hours.
+   - Extracts the experimental total number density values.
+   - Prints the processed TND dataset.
+
+3. Mean Particle Radius (MPR) processing
+   - Loads MPR_processed.xlsx.
+   - Converts time from seconds to hours.
+   - Extracts the experimental mean particle radius values.
+   - Prints the processed MPR dataset.
+
+4. Experimental data visualisation
+   - Generates scatter plots of:
+       * Hardness versus time
+       * Total Number Density versus time
+       * Mean Particle Radius versus time
+   - Uses logarithmic time scaling for all datasets.
+   - Uses logarithmic y-axis scaling for TND and MPR.
+   - Displays the plots for quick visual inspection of the processed
+     experimental data.
+
+Role of this file
+-----------------
+This script is a preprocessing and quality-control utility. It prepares the
+experimental validation datasets for use by the KWN validation scripts and
+allows the processed measurements to be visually inspected before model
+validation.
+
+Unlike the calibration and validation scripts, this file performs no physics
+simulation, parameter optimisation, or model fitting. It simply converts,
+summarises, and visualises the processed experimental datasets.
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
