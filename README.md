@@ -41,11 +41,12 @@ This repository addresses a complementary problem: efficient gradient-based cali
 
 By reformulating the simplified KWN model into a differentiable computational graph, smoothing discontinuous conditional logic, and introducing physics-informed regularisation (including parameter rebounding and unity regularisation), gradients can be propagated through the entire precipitation model and exploited by modern first-order optimisers such as Adam.
 
-Metric	Adam	Powell	Nelder–Mead
-Training time (min)	17.9 ± 2.1	57 ± 12	45 ± 16
-Function evaluations	139 ± 17	886 ± 190	620 ± 170
-Invalid evaluations / trial	0	40 ± 38	3.2 ± 1.2
-Computational complexity	O(N)	O(N²)	O(N)
+| Metric | Adam (Gradient-Based) | Powell | Nelder–Mead |
+|:-------|----------------------:|--------:|------------:|
+| Training time (minutes) | **17.9 ± 2.1** | 57 ± 12 | 45 ± 16 |
+| Function evaluations | **139 ± 17** | 886 ± 190 | 620 ± 170 |
+| Invalid function evaluations per trial | **0** | 40 ± 38 | 3.2 ± 1.2 |
+| Computational complexity | **O(N)** | O(N²) | O(N) |
 
 The benchmark demonstrates that exploiting analytical gradients substantially reduces optimisation time and required model evaluations while simultaneously eliminating invalid parameter evaluations during calibration. Combined with the proposed physics-informed regularisation strategy, the optimisation converges to physically meaningful parameter sets and produces stable predictions of yield strength and latent microstructural variables (total number density, mean particle radius, and total volume fraction).
 
