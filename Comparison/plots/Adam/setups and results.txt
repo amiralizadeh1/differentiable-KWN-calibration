@@ -1,0 +1,97 @@
+
+newFolder = os.path.join('D:\PhD\Implementation', 'AI')
+if not os.path.exists(newFolder): os.makedirs(newFolder)
+
+#composition and process parameters
+T = 150.+273
+FinalTime = 170. #(h)
+
+#physical constanst
+K = 1.380649e-23 #+ (j.K-1)
+Delta = 7.
+R = 8.31  #(j.K-1.mol-1)
+pi = tf.constant(np.pi, dtype=tf.float32)
+e = tf.constant(tf.math.exp(1.0), dtype=tf.float32)
+S1 = 5.
+S2 = 6.
+xp_Mg = 5./11.
+xp_Si = 6./11.
+v = 1.92e-29 #+ #average volume of atoms in MgxSiy precipitates[1]
+a = 2.86e-10 #+ interatomic distance[software] 
+N0 = 5.8e28  #+ Number of sites [s] 5.8e28 #1.5e27
+vm = 3.95e-5  #+ ppt molar volum
+epsilon =  1.
+Gmod = 2.7e10  #+ #Gmod is the sheer modulus of aluminium matrix (GPa) (N.m-2)
+b_dis = 2.84e-10 #+ should be in (m)
+
+#fitting
+q = 2. #stress exponent [s]
+DELTA_DIS =  0.5 #[1]
+k_Mg = 21.1e6   #[1] 21.1e6 Pa/wt%. [4] 29.0e6
+k_Si = 10.5e6  #[1] 10.5e6  Pa/wt% [4] 66.3
+Sigma0 = 55000000  #+
+c02 = 500 #+ #[s] #(c02-Sigma) may give a negative value, which is invalid for the elongation equation.
+c03 = 10 #+ #[s]
+
+#modelling parameter
+seed_value = 4
+tf.random.set_seed(seed_value)
+N_optimizer = 2000
+dt = 1. #(h)
+LR_param1 = 0.01
+LR_param2 = 0.001
+LR_param3 = 0.1
+LR_param4 = 0.01
+LR_param5 = 0.01
+LR_paramrpc = 0.0000001
+LR_SGD = 0.01
+LR_Adam = 0.001
+ftol_adam = 0.000001 #adam: 0.001 in 15min, , 0.0001 for 18 min still no convergence, 0.00001 for good view #0.000001 for best view
+ftol_powell= 0.0001 # 0.1 for 40 mins 
+
+
+param1_init = tf.random.normal([], mean=1.0, stddev=0.1)
+initial_p2 = tf.math.log(tf.random.normal([], mean=1.0, stddev=0.01))
+param2_init = initial_p2
+param3_init = tf.random.normal([], mean=1.0, stddev=0.1)
+param4_init = tf.random.normal([], mean=1.0, stddev=0.1)
+param5_init = tf.random.normal([], mean=1.0, stddev=0.1)
+
+time_steps = int(FinalTime/dt)
+time_ = np.arange(0, time_steps * dt, dt)
+
+Fk_coeff_1 = 2.*DELTA_DIS*Gmod*b_dis**2. #Delata_dis is a parameter depending on te shape and nature of dislocations
+Fk_coeff_2 = math.sqrt(2)*DELTA_DIS*Gmod*b_dis
+Gamma_dis = 2./math.sqrt(3)*DELTA_DIS*Gmod*b_dis**2. #calculated from rp=rpc condition #Gamma is the line tension of dislocations 
+Gamma_b_coeff = math.sqrt(2.*math.sqrt(3)*Gamma_dis)*b_dis
+
+
+# #data processsing
+x = np.array([1, 2, 3, 8, 24, 48, 72, 120, 168])
+y = np.array([74, 89, 127, 187, 219, 230, 252, 280, 255])
+y = y/1.e3 #normalisation
+coefficients = np.polyfit(x, y, 2)
+Yield_interpolated = np.polyval(coefficients, time_[1:])
+Yield_interpolated = tf.Variable(Yield_interpolated, trainable=False, dtype=np.float32)
+
+
+
+
+
+
+
+
+
+
+
+
+
+results:
+param1: 1.038563
+param2: 0.85313076
+param3: 1.0249873
+param4: 1.0574298
+param5: 0.76058805
+At iteration 278: loss_diff=0.000001 , tolerance=0.000001
+ADAM Convergence reached.
+execution time of ADAM is 38.946627442042036 mins

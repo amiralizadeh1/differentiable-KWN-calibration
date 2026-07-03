@@ -1,0 +1,3 @@
+Random Seed: 13
+NM - Execution Time: 24.43 mins, Function Evaluations: 374, Iterations: 164, NaN Count: 2
+NM Final Parameters: param1=1.353309, param2=0.865267, param3=1.108930, param4=1.256890, param5=0.896902

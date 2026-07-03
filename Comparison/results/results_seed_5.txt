@@ -1,0 +1,5 @@
+Random Seed: 5
+ADAM - Execution Time: 15.96 mins, Function Evaluations: 122
+ADAM Final Parameters: param1=0.865367, param2=0.883587, param3=1.266443, param4=1.123300, param5=0.742355
+Powell - Execution Time: 67.57 mins, Function Evaluations: 1115, Iterations: 5, NaN Count: 1
+Powell Final Parameters: param1=0.813033, param2=0.943852, param3=2.570616, param4=1.068750, param5=0.003033
