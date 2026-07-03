@@ -33,6 +33,39 @@ This repository supports the work:
 
 This implementation further expands the methodology presented in the publication with additional validation utilities, Monte Carlo analyses, visualisation tools, unit tests, processed experimental datasets, and reproducible scripts used throughout the PhD thesis.
 
+## Benchmark: Gradient-Based vs. Gradient-Free Optimisation
+
+The `benchmark/` directory contains the complete benchmarking framework used to compare the performance of gradient-based and gradient-free optimisation methods for calibrating the differentiable KWN model.
+
+The benchmark reproduces the experiments reported in the accompanying publication, where the Adam optimiser is evaluated against the Powell and Nelder–Mead algorithms under identical calibration conditions.
+
+### Benchmark Outputs
+
+The benchmarking scripts compute and compare:
+
+- Optimisation runtime
+- Number of physics model evaluations
+- Convergence of the loss function
+- Evolution of trainable parameters
+- Predicted yield-strength curves
+- Physically invalid parameter evaluations
+- Final calibrated parameter values
+- Repeatability across multiple optimisation runs
+
+### Compared Optimisers
+
+| Optimiser | Type |
+|-----------|------|
+| Adam | Gradient-based |
+| Powell | Gradient-free |
+| Nelder–Mead | Gradient-free |
+
+### Purpose
+
+The benchmark demonstrates the computational advantages of automatic differentiation for physics-based model calibration. By exploiting analytical gradients, gradient-based optimisation significantly reduces computational cost while producing physically plausible calibrated parameters.
+
+The implementation is fully reproducible and was used to generate the benchmarking results presented in the associated publication.
+
 ## Relation to Previous Work
 
 Recent work by Machine Learning-Assisted Process Optimization of Al-Mg-Si Alloys and A differentiable precipitation model for Bayesian calibration has demonstrated the growing importance of combining machine learning with precipitation-hardening models. In particular, the npj Computational Materials paper is an important contribution toward differentiable physics-based modelling, showing that automatic differentiation can be successfully integrated with precipitation simulations for  parameter estimation.
