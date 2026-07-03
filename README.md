@@ -39,7 +39,7 @@ The `benchmark/` directory contains the complete benchmarking framework used to 
 
 The benchmark reproduces the experiments reported in the accompanying publication, where the Adam optimiser is evaluated against the Powell and Nelder–Mead algorithms under identical calibration conditions.
 
-### Benchmark Outputs
+### Benchmark Outputs (in the Comparison directory)
 
 The benchmarking scripts compute and compare:
 
