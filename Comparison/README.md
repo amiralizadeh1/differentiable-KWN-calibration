@@ -1,62 +1,148 @@
-# Physics-Informed Data-Driven Modelling of Aluminium Processing
+# Optimisation Benchmark
 
-This project focuses on modeling the precipitation hardening process in aluminum alloys, specifically within the Al-Mg-Si system. Precipitation hardening is a crucial mechanism in metallurgy that enhances the yield strength of materials by forming fine precipitates within the metal matrix.
+This directory contains the complete benchmarking framework used to evaluate the proposed gradient-based calibration strategy against traditional gradient-free optimisation methods for the differentiable KWN precipitation hardening model.
 
-This project employs a simplified version of the KWN model, where certain physical aspects are deliberately omitted. To account for these simplifications, a set of free parameters is strategically incorporated into the physics-based equations. An optimizer is then used to adjust these parameters, refining them through iterations until they align with the experimental data.
+The scripts reproduce the optimisation experiments and post-processing presented in the accompanying publication, including convergence analysis, parameter uncertainty, prediction accuracy, and validation on independent datasets.
 
-This work utilizes physics-informed neural networks (PINN), where limited training data compensates for gaps in understanding the underlying dynamics.
+---
 
-This project is particularly useful in the field of materials science and engineering, where understanding and predicting the mechanical properties of alloys are critical. The integration of machine learning techniques with traditional thermodynamic and kinetic modeling can provide more accurate predictions and help in designing new alloys with desired properties.
+## Directory Structure
 
-## Table of Contents
-- [Installation](#installation)
-- [Usage](#usage)
-- [Features](#features)
-- [Contributing](#contributing)
-- [License](#license)
-- [Authors](#authors)
-- [Contact](#contact)
+### `Comparison.py`
 
-## Installation
+Main benchmarking script.
 
-To get a local copy up and running follow these simple steps:
+This script performs the optimisation benchmark by calibrating the differentiable KWN model using multiple optimisation algorithms under identical conditions. It records optimisation history, convergence behaviour, execution time, calibrated parameters, yield-strength predictions, and intermediate microstructural quantities.
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/amiralizadeh1/KWN.git
+Outputs include:
 
-## Usage
+- calibrated model parameters
+- optimisation history
+- yield-strength predictions
+- convergence curves
+- benchmarking statistics
 
-1. In scenarios where the physical dynamics are complex, and even a network of intricate physics-based equations leaves certain aspects of the physics unknown.
+---
 
-2. In cases where the available training data is insufficient, incorporating physical constraints helps compensate for the data shortage.
+### `Physics-based KWN.py`
 
-3. For integrating the traditional methods of modeling the precipitation hardening process with more modern machine learning techniques.
+Reference implementation of the original physics-based KWN precipitation hardening model.
 
-## Features
+Unlike the differentiable implementation, this version is intended primarily for verification and comparison of the underlying precipitation model.
 
-1. **Thermodynamic Modeling**: The project leverages thermodynamic models based on CALPHAD (CALculation of PHAse Diagrams) methods to calculate the driving forces for phase transformations and precipitate formation in aluminum alloys. These calculations are handled using the MulticomponentThermodynamics class from the kawin.Thermodynamics library, which considers multiple phases, such as FCC_A1 and MG5SI6_B_DP.
+---
 
-2. **Numerical Simulation:** The project simulates the nucleation, growth, and coarsening of precipitates over time using various physical constants and material-specific parameters. TensorFlow is employed to manage variables, perform gradient computation, and optimize the model, highlighting the project's integration of machine learning techniques with traditional materials science methodologies.
+### `Data-driven Phys-based KWN.py`
 
-3. **Optimization:** The project involves optimizing several parameters (e.g., param1, param2, param3, etc.) to minimize the difference between simulated and experimentally derived yield strength values (Yield_t). Custom learning rates are assigned to each parameter, allowing for effective fine-tuning of the model.
+Differentiable implementation of the KWN model used for gradient-based optimisation.
 
-4. **Visualization:** The project includes tools for visualizing the evolution of key quantities, such as number density, mean particle radius, total volume fraction, and yield strength over time. These visualizations are crucial for evaluating the accuracy and behavior of the simulation.
+This implementation introduces differentiable approximations to enable automatic differentiation while preserving the underlying physical model.
 
-5. **Automation:** The project automates the processes of gradient computation and parameter updating, streamlining the execution of iterative simulations and optimizations.
+This is the core model used throughout the benchmarking experiments.
 
-## Contributing
+---
 
-Amir Alizadeh
+### `validation.py`
 
-## Licence
-This project is licensed under the MIT License 
+Validation script for evaluating the calibrated model on independent ageing datasets.
 
-## Authors
+The script compares predicted yield-strength curves against experimental measurements from multiple literature sources, allowing assessment of the model's generalisation capability beyond the calibration dataset.
 
-Amir Alizadeh
+---
 
-## Contact
+### `plot_utils.py`
 
-alizadehamir21@gmail.com
+Utility functions used throughout the optimisation process.
 
+Responsibilities include:
+
+- plotting optimisation progress
+- exporting predicted yield-strength curves
+- saving optimisation history
+- computing goodness-of-fit metrics
+- generating publication-quality figures
+
+---
+
+### `parameters error bar.py`
+
+Post-processing script for analysing optimisation repeatability.
+
+The script loads calibrated parameters from multiple optimisation runs and computes:
+
+- mean parameter values
+- standard deviations
+- parameter uncertainty
+- parallel-coordinate visualisations
+- publication-ready summary tables
+
+This script was used to quantify optimisation robustness.
+
+---
+
+### `YS error bars.py`
+
+Computes uncertainty in predicted yield-strength curves across repeated optimisation runs.
+
+Outputs include:
+
+- mean prediction
+- standard deviation
+- confidence bands
+- yield-strength uncertainty plots
+
+---
+
+### `YS_data.py`
+
+Collection of experimental ageing datasets used for model calibration and validation.
+
+The file contains literature data from several aluminium alloys and ageing conditions used throughout the benchmarking and validation studies.
+
+---
+
+### `get_mean.ipynb`
+
+Jupyter notebook used for exploratory statistical analysis of repeated optimisation experiments.
+
+Primarily used during manuscript preparation to compute summary statistics and verify numerical results.
+
+---
+
+## Output Directories
+
+### `plots/`
+
+Contains automatically generated figures including:
+
+- optimisation convergence
+- yield-strength predictions
+- parameter evolution
+- uncertainty plots
+- validation figures
+
+---
+
+### `results/`
+
+Stores numerical outputs generated during optimisation, including calibrated parameters, prediction data, and benchmarking statistics.
+
+---
+
+## Benchmark Objectives
+
+The benchmarking framework compares gradient-based and gradient-free optimisation methods with respect to:
+
+- optimisation runtime
+- number of objective function evaluations
+- convergence behaviour
+- optimisation stability
+- parameter repeatability
+- prediction accuracy
+- physical plausibility of calibrated parameters
+
+The implementation reproduces the benchmarking results reported in:
+
+> **Alizadeh, A., Souissi, M., Zhou, M., & Assadi, H.**
+> *Gradient-Based Calibration of a Precipitation Hardening Model for 6xxx Series Aluminium Alloys.*
+> *Metals*, 2025, 15(9), 1035.
