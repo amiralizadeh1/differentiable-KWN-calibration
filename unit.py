@@ -1,6 +1,69 @@
-# the optimiser runs for 200 iteration with a significatly tight criteria on loss convergence. two versions of loss are established
-# one loss for the original version. the other for the p1=p4. run the first one to measure the similarity between p1 and p4.
-# then run it with the 2nd one for the similarity between p1 and p4.
+"""
+unit.py
+
+Purpose
+-------
+This script performs an algorithmic unit test for the differentiable KWN
+precipitation-hardening model and its Adam-based optimisation loop.
+
+The test checks whether the implementation can recover a known synthetic
+ground-truth parameter set. A fixed reference parameter set is first used to
+generate a synthetic yield-strength curve. The optimiser is then reinitialised
+from random starting values and asked to recover the original parameters by
+minimising the difference between the predicted and synthetic target curves.
+
+Major sections
+--------------
+1. Imports and thermodynamic setup
+   - Loads NumPy, TensorFlow, plotting tools, Kawin, and the Al-Mg-Si
+     thermodynamic database.
+
+2. Physical constants and process settings
+   - Defines temperature, ageing time, alloy composition, timestep, diffusion
+     constants, strengthening constants, and optimisation settings.
+
+3. Forward KWN model
+   - D_Mg() and D_Si() calculate diffusivities.
+   - dGvol() obtains CALPHAD driving force.
+   - Rs(), DeltaGsnorm(), Rp(), and dNdT() calculate nucleation terms.
+   - CalculateNucleation(), CalculateGrowth(), and Update() evolve the
+     precipitate population.
+   - Strength() converts microstructural state into predicted yield strength.
+
+4. Synthetic target generation
+   - A known parameter set is used to generate a reference yield-strength curve.
+   - This synthetic curve acts as the ground truth for the unit test.
+
+5. Adam recovery test
+   - param1-param5 are reinitialised as trainable TensorFlow variables.
+   - physics_adam() reruns the KWN model at each iteration.
+   - Adam updates the parameters using TensorFlow automatic differentiation.
+
+6. Internal state tracking
+   - The model also tracks TND, MPR, TVF, and Yield_t.
+   - These are passed to visual() and plot_physics_results() for visual checking
+     of both the yield-strength prediction and internal microstructural evolution.
+
+7. Reporting
+   - Final recovered parameters are collected across Monte Carlo runs.
+   - Mean, variance, and a parallel-coordinate plot are generated to assess
+     recovery stability.
+
+Unit test result
+----------------
+The thesis reports that the optimiser recovered all five latent parameters with
+less than 0.32% error. The recovered values were:
+
+    P1: target 0.659821 -> recovered 0.660701, error +0.13%
+    P2: target 0.863554 -> recovered 0.863856, error +0.03%
+    P3: target 1.225691 -> recovered 1.221885, error -0.31%
+    P4: target 0.613346 -> recovered 0.614634, error +0.21%
+    P5: target 0.646988 -> recovered 0.647970, error +0.15%
+
+This confirms that the differentiable KWN implementation, TensorFlow gradient
+tracking, loss function, and Adam optimisation loop can recover a known
+synthetic ground truth with high precision.
+"""
 
 import time
 import numpy as np

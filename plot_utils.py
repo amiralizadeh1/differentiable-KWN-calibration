@@ -1,5 +1,56 @@
-# amazonQ prompts: 1) seperate the plots of YS and put the loss and paramter plots as horizontal subplots with
-# subplot lables under them indicated by (a) and (b).
+"""
+plot_utils.py
+
+Purpose
+-------
+This module contains the visualisation and result-export utilities used by the
+differentiable KWN calibration framework. It is called by the calibration,
+validation, and unit-test scripts to monitor optimisation, assess physical
+model behaviour, and save numerical results for post-processing.
+
+Main functions
+--------------
+1. nse_score()
+   - Computes the Nash–Sutcliffe Efficiency (NSE) between predicted and
+     reference yield-strength curves.
+   - Provides an additional goodness-of-fit metric (used by optimisation routines for reporting purpose only, not for training).
+
+2. visual()
+   - Monitors optimisation progress during training.
+   - Every 10 optimisation iterations it generates a combined figure showing:
+       * Predicted vs experimental/interpolated yield strength.
+       * Loss evolution.
+       * Evolution of trainable parameters (P1–P5).
+   - Exports the optimisation history to Excel files, including:
+       * Loss history.
+       * Parameter trajectories.
+       * Predicted and interpolated yield-strength curves.
+
+3. plot_physics_results()
+   - Produces separate figures for the principal physical outputs of the KWN
+     model:
+       * Total Number Density (TND)
+       * Mean Particle Radius (MPR)
+       * Total Volume Fraction (TVF)
+       * Yield Strength (YS)
+   - Where available, experimental microstructural measurements are plotted
+     alongside model predictions to visually assess the physical realism of the
+     simulation.
+
+Purpose of the visualisation
+----------------------------
+The visualisation routines are designed to evaluate both optimisation
+performance and physical model behaviour.
+
+The optimisation figures verify that:
+    - the loss decreases,
+    - the trainable parameters converge,
+    - the predicted yield-strength curve approaches the experimental target.
+
+The physics figures verify that the calibrated model also produces physically
+reasonable internal microstructural evolution through TND, MPR and TVF, rather
+than merely fitting the yield-strength curve.
+"""
 
 import matplotlib
 matplotlib.use('Agg') 

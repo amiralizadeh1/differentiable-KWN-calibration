@@ -1,4 +1,65 @@
-# this file runs on sekhar dataset.
+"""
+revision kwn.py
+
+Purpose
+-------
+This script calibrates the differentiable KWN precipitation-hardening model
+against the Sekhar Al-Mg-Si ageing dataset.
+
+Data source
+-----------
+The experimental yield-strength data used in this file are from:
+
+Sekhar et al.,
+"Evolution of hardness and yield strength in Al-Mg-Si alloys",
+IOP Conference Series: Materials Science and Engineering, 338, 012011, 2018.
+https://doi.org/10.1088/1757-899X/338/1/012011
+
+Main workflow
+-------------
+1. Thermodynamic setup
+   - Loads the Al-Mg-Si thermodynamic database using Kawin.
+   - Defines FCC_A1 as the matrix phase and MG5SI6_B_DP as the precipitate phase.
+
+2. Physical and process parameters
+   - Sets ageing temperature to 150 °C and final simulation time to 170 hours.
+   - Defines diffusion, nucleation, growth, coarsening, and strengthening constants.
+
+3. Experimental data processing
+   - Uses the Sekhar yield-strength dataset.
+   - Normalises yield strength from MPa to GPa.
+   - Fits a second-degree polynomial to create a continuous training target.
+
+4. KWN model functions
+   - Calculates diffusivity, CALPHAD driving force, nucleation, growth,
+     coarsening, solute depletion, and strengthening.
+   - Tracks internal state variables:
+       * TVF: total volume fraction
+       * TND: total number density
+       * MPR: mean particle radius
+
+5. Adam optimisation
+   - Runs the full forward KWN model at every iteration.
+   - Compares predicted yield strength with the interpolated Sekhar target.
+   - Updates param1-param5 using TensorFlow automatic differentiation.
+   - Adds regularisation terms to keep fitted parameters physically meaningful.
+
+6. Visualisation and output
+   - Sends predicted YS, loss history, parameter trajectories, TVF, TND, and MPR
+     to visual().
+   - Saves final parameters, settings, losses, runtime, and iteration count to
+     the plots folder.
+
+Difference from validation.py
+-----------------------------
+revision kwn.py is the primary calibration script using the Sekhar dataset at
+150 °C.
+
+validation.py is the secondary validation script using the Myhr Alloy IV dataset
+at 185 °C. It checks whether the calibrated framework also gives plausible
+yield-strength predictions and internal microstructural evolution for another
+alloy/ageing condition.
+"""
 
 import time
 import numpy as np

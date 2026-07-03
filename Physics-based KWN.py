@@ -1,6 +1,73 @@
-# the optimiser runs for 200 iteration with a significatly tight criteria on loss convergence. two versions of loss are established
-# one loss for the original version. the other for the p1=p4. run the first one to measure the similarity between p1 and p4.
-# then run it with the 2nd one for the similarity between p1 and p4.
+"""
+Physics-based KWN.py
+
+Purpose
+-------
+This script runs the KWN precipitation-hardening model in a fixed,
+physics-based mode using a predefined set of calibrated parameters.
+
+Unlike the optimisation scripts, this file does not train the parameters with
+Adam. Instead, it directly inserts a fixed parameter set and performs one
+forward simulation to check the resulting yield-strength curve and internal
+microstructural evolution.
+
+Main workflow
+-------------
+1. Thermodynamic setup
+   - Loads the Al-Mg-Si thermodynamic database using Kawin.
+   - Defines FCC_A1 as the aluminium matrix phase and MG5SI6_B_DP as the
+     precipitate phase.
+
+2. Physical and process parameters
+   - Sets the ageing temperature to 150 °C and final simulation time to
+     170 hours.
+   - Defines constants for diffusion, nucleation, growth, coarsening,
+     strengthening, dislocation interaction, and solute depletion.
+
+3. Fixed parameter set
+   - Uses predefined values for param1-param5 and paramrpc.
+   - These parameters are not trainable in this file.
+   - The file therefore represents a forward physics-based prediction rather
+     than an inverse calibration task.
+
+4. Experimental data processing
+   - Uses the Sekhar yield-strength ageing dataset.
+   - Normalises yield strength from MPa to GPa.
+   - Fits a second-degree polynomial to create an interpolated reference curve
+     for visual comparison.
+
+5. KWN forward model
+   - D_Mg() and D_Si() calculate Mg and Si diffusivities.
+   - dGvol() obtains the CALPHAD driving force.
+   - Rs(), DeltaGsnorm(), Rp(), and dNdT() calculate nucleation-related terms.
+   - CalculateNucleation() creates the initial precipitate population.
+   - CalculateGrowth() updates precipitate radius and number density.
+   - Update() calculates:
+       * TVF: total volume fraction
+       * TND: total number density
+       * MPR: mean particle radius
+       * remaining Mg and Si matrix solute fractions
+   - Strength() converts the microstructural state into predicted yield strength.
+
+6. Output and visualisation
+   - Prints intermediate values such as ND, PR, VF, TND, MPR, TVF, solute
+     concentrations, and predicted yield strength at each timestep.
+   - Sends predicted yield strength and internal state variables to
+     plot_physics_results() for visual inspection.
+
+Role of this file
+-----------------
+This file is useful as a baseline or sanity-check script. It answers:
+
+    “What does the KWN model predict when the parameters are fixed?”
+
+It is therefore different from the Adam calibration scripts, which answer:
+
+    “What parameters should the optimiser learn to match the experimental data?”
+
+In short, this file performs a forward physics-based simulation, not automatic
+gradient-based calibration.
+"""
 
 import time
 import numpy as np

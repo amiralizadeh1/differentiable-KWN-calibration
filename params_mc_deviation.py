@@ -1,4 +1,68 @@
+"""
+params_mc_deviation.py
 
+Purpose
+-------
+This script analyses the variability of the calibrated KWN parameters across
+multiple Monte Carlo optimisation runs.
+
+The final converged values of the five trainable parameters (P1–P5) are entered
+manually from repeated optimisation experiments and compared with and without
+parameter rebounding regularisation. The purpose is to demonstrate that the
+inverse calibration problem admits multiple parameter combinations that produce
+similarly accurate yield-strength predictions, and that parameter rebounding
+regularisation reduces this non-uniqueness by guiding optimisation towards a
+stable and physically consistent solution.
+
+Background
+----------
+The differentiable KWN calibration problem is ill-posed. When only the
+yield-strength prediction error is minimised, many different parameter
+combinations can generate almost identical ageing curves. Consequently,
+independent optimisation runs starting from different initial conditions may
+converge to different local solutions despite achieving nearly the same loss.
+
+The parameter rebounding regularisation proposed in the accompanying thesis
+introduces relationships between physically related parameter instances,
+reducing parameter drift ("instance rebounding") and improving the repeatability
+and physical interpretability of the calibrated model.
+
+Main workflow
+-------------
+1. Load optimisation results
+   - Manually enters the final converged values of P1–P5 obtained from multiple
+     Monte Carlo optimisation runs.
+   - Two optimisation strategies are compared:
+         • Without parameter rebounding regularisation.
+         • With unity and parameter rebounding regularisation.
+
+2. Statistical analysis
+   - Computes the mean and standard deviation of each parameter across all
+     optimisation runs.
+   - Reports these statistics in the console.
+
+3. Visual comparison
+   - Plots the mean value of each parameter.
+   - Displays ±1 standard deviation as a shaded confidence band.
+   - Compares the parameter spread with and without parameter rebounding
+     regularisation.
+
+Purpose of the analysis
+-----------------------
+This script provides evidence that calibration based solely on yield-strength
+prediction does not produce a unique solution. Instead, multiple optimisation
+runs converge to different parameter combinations while producing nearly
+identical model predictions.
+
+The results demonstrate that parameter rebounding regularisation substantially
+reduces parameter variability ("instance rebounding"), leading to more stable,
+repeatable, and physically meaningful parameter estimates across independent
+optimisation runs.
+
+Unlike the calibration scripts, this file performs no optimisation. It is a
+post-processing and visualisation script used to analyse optimisation
+repeatability and parameter convergence behaviour.
+"""
 
 import pandas as pd
 import matplotlib.pyplot as plt
